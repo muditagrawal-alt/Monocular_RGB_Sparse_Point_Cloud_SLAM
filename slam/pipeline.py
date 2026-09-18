@@ -11,9 +11,9 @@ overrunning the time budget.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 
@@ -411,6 +411,11 @@ class SlamPipeline:
                 return False, (result.points.copy(), result.track_ids.copy()), 0
             return False, init_ref, attempts
 
+        if init.pose is None or init.points_world is None or init.inlier_mask is None:
+            # A successful result always carries these; treat anything else as
+            # a failed attempt rather than trusting it.
+            return False, init_ref, attempts
+
         kf_ref = Keyframe(id=slam_map.new_keyframe_id(), frame_index=0, timestamp=0.0,
                           pose=Pose(), points=pa.astype(np.float32), track_ids=shared_ids)
         # The reference keyframe needs descriptors too, otherwise the very
@@ -431,7 +436,7 @@ class SlamPipeline:
         pts3d = init.points_world
         k = 0
         for idx in range(len(shared_ids)):
-            if mask is None or not mask[idx]:
+            if not mask[idx]:
                 continue
             lm = slam_map.add_landmark(pts3d[k])
             slam_map.observe(lm.id, kf_ref.id, idx)

@@ -140,9 +140,9 @@ class LoopClosureConfig:
     """Attempt detection from every Nth keyframe. Consecutive keyframes see
     essentially the same place, so querying all of them multiplies cost without
     finding new loops."""
-    candidates_per_query: int = 10
+    candidates_per_query: int = 14
     """Candidates verified per query keyframe, for queries that get a turn."""
-    max_verifications: int = 110
+    max_verifications: int = 200
     """Hard cap on geometric verifications, to bound worst-case runtime.
     Verification costs ~14 ms, so this is the main lever on loop-closure time.
     Because queries are tried in order of closest approach, the budget is spent

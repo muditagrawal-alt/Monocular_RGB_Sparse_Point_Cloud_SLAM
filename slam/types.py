@@ -219,8 +219,9 @@ class SlamMap:
         kf = self.keyframes.get(keyframe_id)
         if kf is None or not kf.landmark_ids:
             return 1.0
-        pts = np.array([self.landmarks[l].position for l in kf.landmark_ids.values()
-                        if l in self.landmarks])
+        pts = np.array([self.landmarks[lm_id].position
+                        for lm_id in kf.landmark_ids.values()
+                        if lm_id in self.landmarks])
         if len(pts) == 0:
             return 1.0
         depths = kf.pose.world_to_camera(pts)[:, 2]

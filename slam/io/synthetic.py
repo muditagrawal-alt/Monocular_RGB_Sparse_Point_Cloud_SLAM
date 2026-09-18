@@ -36,7 +36,8 @@ class SyntheticSequence:
         path = str(path)
         fps = fps or self.fps
         h, w = self.frames[0].shape[:2]
-        writer = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
+        writer = cv2.VideoWriter(path, fourcc, fps, (w, h))
         if not writer.isOpened():
             raise RuntimeError(f"cannot open video writer for {path}")
         try:
@@ -106,19 +107,29 @@ def make_sequence(n_frames: int = 90, width: int = 640, height: int = 360,
     rng = np.random.default_rng(seed)
     camera = camera_from_hfov(width, height, 65.0)
 
-    # A central cluster plus a surrounding shell. The cluster keeps structure
-    # in view across a full orbit (so tracks survive and a loop can actually
-    # be detected), while the shell spreads depth, which is what makes
-    # triangulation well conditioned.
-    pts: list[np.ndarray] = []
-    n_cluster = n_points // 2
-    for _ in range(n_cluster):
-        pts.append(rng.normal(0.0, 1.5, 3))
-    for _ in range(n_points - n_cluster):
-        theta = rng.uniform(0, 2 * np.pi)
-        r = rng.uniform(7.0, 13.0)
-        z = rng.uniform(-3.5, 3.5)
-        pts.append([r * np.cos(theta), z, r * np.sin(theta)])
+    # Scene geometry is chosen per motion so that structure always sits at a
+    # healthy range of depths in front of the camera. A layout that suits one
+    # trajectory can be degenerate for another: a central cluster keeps an
+    # orbiting camera looking at the same object, but a camera strafing through
+    # the middle of that cluster would see points at near-zero depth, which is
+    # a badly posed reconstruction problem rather than a test of the system.
+    pts: list[list[float]] = []
+    if motion == "orbit":
+        # object at the centre (kept in view all the way round) plus a
+        # surrounding shell for depth variation
+        n_cluster = n_points // 2
+        for _ in range(n_cluster):
+            pts.append(rng.normal(0.0, 1.5, 3).tolist())
+        for _ in range(n_points - n_cluster):
+            theta = rng.uniform(0, 2 * np.pi)
+            r = rng.uniform(7.0, 13.0)
+            pts.append([float(r * np.cos(theta)), float(rng.uniform(-3.5, 3.5)),
+                        float(r * np.sin(theta))])
+    else:
+        # a wall of structure ahead of the camera path, spanning several depths
+        for _ in range(n_points):
+            pts.append([float(rng.uniform(-9.0, 9.0)), float(rng.uniform(-5.0, 5.0)),
+                        float(rng.uniform(5.0, 16.0))])
     points = np.array(pts, dtype=np.float64)
     colors = rng.integers(70, 255, (len(points), 3)).astype(np.uint8)
     # per-point inner-marker appearance: rgb (0-1), relative size, angle
@@ -149,10 +160,8 @@ def make_sequence(n_frames: int = 90, width: int = 640, height: int = 360,
         world_up = np.array([0.0, 1.0, 0.0])
         right = np.cross(world_up, fwd)
         n_right = np.linalg.norm(right)
-        if n_right < 1e-8:      # looking straight up/down
-            right = np.array([1.0, 0.0, 0.0])
-        else:
-            right = right / n_right
+        # a look direction parallel to world up leaves `right` undefined
+        right = np.array([1.0, 0.0, 0.0]) if n_right < 1e-8 else right / n_right
         up = np.cross(fwd, right)
         # camera-to-world: columns are the camera axes in world coordinates
         R = np.column_stack([right, up, fwd])

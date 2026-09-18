@@ -20,8 +20,14 @@ import numpy as np
 from ..camera import Camera
 from ..config import LocalBAConfig
 from ..types import SlamMap
-from .gtsam_utils import (from_gtsam_pose, landmark_key, pose_key, robust_pixel_noise,
-                          to_gtsam_calibration, to_gtsam_pose)
+from .gtsam_utils import (
+    from_gtsam_pose,
+    landmark_key,
+    pose_key,
+    robust_pixel_noise,
+    to_gtsam_calibration,
+    to_gtsam_pose,
+)
 
 
 @dataclass

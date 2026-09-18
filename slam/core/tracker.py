@@ -111,7 +111,7 @@ class Tracker:
                 tvec = t.reshape(3, 1).copy()
                 use_guess = True
 
-        ok, rvec, tvec, inliers = cv2.solvePnPRansac(
+        ok, rvec, tvec, inliers = cv2.solvePnPRansac(  # type: ignore[call-overload]
             obj, img, self.camera.K, None,
             rvec=rvec, tvec=tvec, useExtrinsicGuess=use_guess,
             iterationsCount=self.cfg.pnp_iterations,
@@ -128,12 +128,17 @@ class Tracker:
 
         # Refine on the inlier set only; the RANSAC solution is coarse.
         if len(inlier_idx) >= 6:
-            rvec, tvec = cv2.solvePnPRefineLM(
+            refined_r, refined_t = cv2.solvePnPRefineLM(  # type: ignore[call-overload]
                 obj[inlier_idx], img[inlier_idx], self.camera.K, None, rvec, tvec)
+            if refined_r is not None and refined_t is not None:
+                rvec, tvec = refined_r, refined_t
 
+        if rvec is None or tvec is None:
+            return TrackingResult(False, n_correspondences=n_corr,
+                                  reason="PnP returned no pose")
         pose = Pose.from_rvec_tvec(rvec, tvec)
 
-        proj, _ = cv2.projectPoints(obj[inlier_idx], rvec, tvec, self.camera.K, None)
+        proj, _ = cv2.projectPoints(obj[inlier_idx], rvec, tvec, self.camera.K, None)  # type: ignore[call-overload]
         errs = np.linalg.norm(proj.reshape(-1, 2) - img[inlier_idx].reshape(-1, 2), axis=1)
 
         mask = np.zeros(len(track_ids), dtype=bool)

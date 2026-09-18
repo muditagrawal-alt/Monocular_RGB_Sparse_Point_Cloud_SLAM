@@ -99,12 +99,12 @@ class FeatureTracker:
             return np.zeros((0, 2), dtype=np.float32)
         return np.vstack(out).astype(np.float32)
 
-    def _occupancy_mask(self, shape: tuple[int, int]) -> np.ndarray:
+    def _occupancy_mask(self, height: int, width: int) -> np.ndarray:
         """Mask excluding a radius around existing tracks, so new corners fill gaps."""
-        mask = np.full(shape[:2], 255, dtype=np.uint8)
+        mask = np.full((height, width), 255, dtype=np.uint8)
         r = max(1, self.cfg.min_distance)
         for x, y in self._points:
-            cv2.circle(mask, (int(round(x)), int(round(y))), r, 0, -1)
+            cv2.circle(mask, (int(round(x)), int(round(y))), r, 0, -1)  # type: ignore[call-overload]
         return mask
 
     def _seed(self, gray: np.ndarray) -> int:
@@ -112,7 +112,8 @@ class FeatureTracker:
         deficit = self.cfg.max_features - self.n_tracks
         if deficit <= 0:
             return 0
-        mask = self._occupancy_mask(gray.shape) if self.n_tracks else None
+        mask = (self._occupancy_mask(gray.shape[0], gray.shape[1])
+                if self.n_tracks else None)
         new_pts = self._detect_grid(gray, mask, deficit)
         if len(new_pts) == 0:
             return 0
@@ -146,7 +147,7 @@ class FeatureTracker:
                                prev_points=np.zeros((0, 2), np.float32),
                                n_tracked=0, n_added=added, is_first=False)
 
-        nxt, status, _ = cv2.calcOpticalFlowPyrLK(
+        nxt, status, _ = cv2.calcOpticalFlowPyrLK(  # type: ignore[call-overload]
             self._prev_gray, gray, prev_pts.reshape(-1, 1, 2), None, **self._lk_params)
 
         if nxt is None:
@@ -164,7 +165,7 @@ class FeatureTracker:
         # near the origin. This is the cheapest reliable way to drop the
         # drifting or occluded tracks that would otherwise corrupt the map.
         if ok.any():
-            back, bstatus, _ = cv2.calcOpticalFlowPyrLK(
+            back, bstatus, _ = cv2.calcOpticalFlowPyrLK(  # type: ignore[call-overload]
                 gray, self._prev_gray, nxt[ok].reshape(-1, 1, 2), None, **self._lk_params)
             if back is not None:
                 fb_err = np.linalg.norm(back.reshape(-1, 2) - prev_pts[ok], axis=1)
@@ -223,7 +224,7 @@ class TrackResult:
 def compute_orb(gray: np.ndarray, n_features: int = 500
                 ) -> tuple[np.ndarray, np.ndarray | None]:
     """ORB keypoints and descriptors, for loop-closure retrieval at keyframes."""
-    orb = cv2.ORB_create(nfeatures=n_features)
+    orb = cv2.ORB_create(nfeatures=n_features)  # type: ignore[attr-defined]
     kps, des = orb.detectAndCompute(gray, None)
     if not kps:
         return np.zeros((0, 2), dtype=np.float32), None
@@ -250,7 +251,7 @@ def compute_orb_at_points(gray: np.ndarray, points: np.ndarray,
     if len(pts) == 0:
         return np.zeros((0, 32), dtype=np.uint8), np.zeros(0, dtype=np.int64)
 
-    orb = cv2.ORB_create()
+    orb = cv2.ORB_create()  # type: ignore[attr-defined]
     keypoints = [cv2.KeyPoint(float(x), float(y), float(patch_size)) for x, y in pts]
     # compute() drops keypoints whose patch falls outside the image, so the
     # surviving keypoints are matched back to their source index by position.

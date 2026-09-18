@@ -22,8 +22,7 @@ import numpy as np
 
 from ..config import PoseGraphConfig
 from ..types import Pose, SlamMap
-from .gtsam_utils import (from_gtsam_pose, pose_key, pose_noise, robust_pose_noise,
-                          to_gtsam_pose)
+from .gtsam_utils import from_gtsam_pose, pose_key, pose_noise, robust_pose_noise, to_gtsam_pose
 
 
 @dataclass
@@ -78,7 +77,7 @@ class PoseGraphOptimizer:
 
         odo_noise = pose_noise(self.cfg.odometry_sigma_trans, self.cfg.odometry_sigma_rot)
         n_odo = 0
-        for a, b in zip(kf_ids, kf_ids[1:]):
+        for a, b in zip(kf_ids, kf_ids[1:], strict=False):
             rel = slam_map.keyframes[a].pose.inverse().compose(slam_map.keyframes[b].pose)
             graph.add(gtsam.BetweenFactorPose3(
                 pose_key(a), pose_key(b), to_gtsam_pose(rel), odo_noise))

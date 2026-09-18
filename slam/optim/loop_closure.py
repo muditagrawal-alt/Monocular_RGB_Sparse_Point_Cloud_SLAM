@@ -180,7 +180,7 @@ class LoopDetector:
         """Encode every keyframe, fitting IDF over the sequence first."""
         tfs = [self.vocab.term_frequency(kf.descriptors) for kf in keyframes]
         self.vocab.fit_idf([t for t in tfs if t is not None])
-        for kf, tf in zip(keyframes, tfs):
+        for kf, tf in zip(keyframes, tfs, strict=False):
             if tf is None:
                 kf.bow = None
                 continue
@@ -279,10 +279,12 @@ class LoopDetector:
 
         best_per_query: dict[int, LoopCandidate] = {}
         for qid, oid in ordered[:budget]:
+            q_bow = slam_map.keyframes[qid].bow
+            o_bow = slam_map.keyframes[oid].bow
+            similarity = float(q_bow @ o_bow) if (q_bow is not None
+                                                  and o_bow is not None) else 0.0
             cand = self._verify(slam_map, slam_map.keyframes[qid],
-                                slam_map.keyframes[oid],
-                                float(slam_map.keyframes[qid].bow
-                                      @ slam_map.keyframes[oid].bow))
+                                slam_map.keyframes[oid], similarity)
             if cand.verified:
                 prev = best_per_query.get(qid)
                 if prev is None or cand.n_inliers > prev.n_inliers:
@@ -351,7 +353,7 @@ class LoopDetector:
         obj_pts: list[np.ndarray] = []
         img_pts: list[np.ndarray] = []
         n_query_pts = len(query.points)
-        for mp, qp in zip(match_pts.tolist(), query_pts.tolist()):
+        for mp, qp in zip(match_pts.tolist(), query_pts.tolist(), strict=False):
             lm_id = match.landmark_ids.get(mp)
             if lm_id is None or qp >= n_query_pts:
                 continue
@@ -367,7 +369,7 @@ class LoopDetector:
 
         obj = np.asarray(obj_pts, dtype=np.float64).reshape(-1, 1, 3)
         img = np.asarray(img_pts, dtype=np.float64).reshape(-1, 1, 2)
-        ok, rvec, tvec, inliers = cv2.solvePnPRansac(
+        ok, rvec, tvec, inliers = cv2.solvePnPRansac(  # type: ignore[call-overload]
             obj, img, self.camera.K, None,
             iterationsCount=self.cfg.ransac_iterations,
             reprojectionError=self.cfg.ransac_threshold_px, confidence=0.99,

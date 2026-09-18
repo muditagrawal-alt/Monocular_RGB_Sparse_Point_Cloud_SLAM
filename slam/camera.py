@@ -66,7 +66,8 @@ class Camera:
     def unproject(self, pixels: np.ndarray, depth: np.ndarray | float = 1.0) -> np.ndarray:
         """Back-project Nx2 pixels to Nx3 camera-frame rays at `depth`."""
         px = np.atleast_2d(np.asarray(pixels, dtype=np.float64))
-        d = np.full(len(px), float(depth)) if np.isscalar(depth) else np.asarray(depth, float)
+        d = (np.full(len(px), float(depth)) if isinstance(depth, (int | float))
+             else np.asarray(depth, dtype=np.float64).reshape(-1))
         return np.stack([(px[:, 0] - self.cx) / self.fx * d,
                          (px[:, 1] - self.cy) / self.fy * d,
                          d], axis=1)

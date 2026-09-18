@@ -155,7 +155,7 @@ class Mapper:
                 np.asarray(positions, dtype=np.float64).reshape(-1, 3),
                 np.asarray(pixels, dtype=np.float64).reshape(-1, 2))
 
-            for lm_id, err in zip(lm_ids, errors):
+            for lm_id, err in zip(lm_ids, errors, strict=False):
                 # A point behind the camera yields inf; treat it as a large
                 # finite penalty so one bad view cannot poison the mean.
                 e = float(err) if np.isfinite(err) else 1e6

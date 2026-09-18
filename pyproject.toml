@@ -26,3 +26,11 @@ markers = [
   "slow: long-running benchmark tests",
   "dataset: requires a downloaded dataset",
 ]
+
+# opencv-python ships incomplete type stubs: they omit factory functions such as
+# ORB_create and VideoWriter_fourcc, and cannot model the **kwargs call style used
+# for optical flow. The few `type: ignore` comments on cv2 calls in slam/ are for
+# these stub gaps, not for unsound code.
+[[tool.mypy.overrides]]
+module = ["cv2", "cv2.*"]
+ignore_missing_imports = true

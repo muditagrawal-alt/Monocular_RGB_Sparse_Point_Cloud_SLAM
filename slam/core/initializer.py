@@ -133,7 +133,7 @@ class Initializer:
         score_h, _ = (_symmetric_transfer_score(H, pts_ref, pts_cur, thr)
                       if H is not None and H.shape == (3, 3) else (0.0, None))
         if F is not None and F.shape != (3, 3):
-            F = F[:3, :3] if F.size >= 9 else None
+            F = F[:3, :3] if F.size >= 9 else None  # type: ignore[assignment]
         score_f, _ = (_epipolar_score(F, pts_ref, pts_cur, thr)
                       if F is not None else (0.0, None))
 
