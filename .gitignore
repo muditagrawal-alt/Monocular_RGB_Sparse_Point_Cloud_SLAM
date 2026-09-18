@@ -28,3 +28,5 @@ web/dist/
 .env
 .env.*
 !.env.example
+web/node_modules/
+.playwright-cli/

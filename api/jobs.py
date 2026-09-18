@@ -24,7 +24,7 @@ from slam.pipeline import SlamPipeline
 
 from .schemas import JobProgress, JobState
 
-MAX_UPLOAD_BYTES = 120 * 1024 * 1024
+MAX_UPLOAD_BYTES = 120_000_000
 MAX_DURATION_S = 60.0
 ALLOWED_SUFFIXES = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 

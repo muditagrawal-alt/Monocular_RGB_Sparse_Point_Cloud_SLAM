@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* Palette extracted from O-HIVE's own compiled stylesheet (o-hive.ai): a fully
+   achromatic oklch ramp with zero chroma, system font stack, and a separate
+   mono face for numerics. The one accent is used only for the drift comparison
+   and loop-closure markers, never for decoration.
+
+   The page is dark-locked: a sparse point cloud reads far better on near-black
+   than on white, and every section stays in the same theme. */
+@theme {
+  --color-ink-900: oklch(14.5% 0 0);
+  --color-ink-850: oklch(17.5% 0 0);
+  --color-ink-800: oklch(20.5% 0 0);
+  --color-ink-700: oklch(26.9% 0 0);
+  --color-ink-600: oklch(34% 0 0);
+  --color-ink-500: oklch(43.9% 0 0);
+  --color-ink-400: oklch(57% 0 0);
+  --color-ink-300: oklch(70.8% 0 0);
+  --color-ink-200: oklch(85% 0 0);
+  --color-ink-100: oklch(98.5% 0 0);
+
+  --color-signal: oklch(76.9% 0.188 70.08);
+  --color-signal-dim: oklch(55% 0.13 70.08);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+
+  --radius-panel: 4px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink-900);
+  color: var(--color-ink-200);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* All numeric telemetry is tabular so columns do not jitter as values update. */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--color-signal-dim);
+  color: var(--color-ink-100);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
