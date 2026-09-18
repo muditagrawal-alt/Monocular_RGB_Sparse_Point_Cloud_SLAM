@@ -202,6 +202,7 @@ class SlamPipeline:
         reproj_errors: list[float] = []
         n_frames = 0
         expected = 0
+        degraded = False
 
         decoder = VideoDecoder(video_path, target_width=width, max_fps=cfg.max_fps,
                               max_frames=cfg.budget.max_frames)
@@ -303,6 +304,35 @@ class SlamPipeline:
                     n_tracked_at_kf = len(result.points)
                     frames_since_kf = 0
 
+                # Mid-flight budget check. The up-front estimate cannot know how
+                # fast this host is, so once enough of the sequence has been
+                # processed to measure real throughput, project the total and
+                # shed optional work if it would overrun. Degrading is better
+                # than silently missing a hard deadline.
+                if (not degraded and cfg.budget.enabled
+                        and n_frames >= expected * cfg.budget.runtime_check_fraction
+                        and n_frames >= 30):
+                    elapsed_s = time.perf_counter() - t_start
+                    frame_loop_total = elapsed_s * (expected / max(n_frames, 1))
+                    # Loop detection and pose-graph optimisation run after this
+                    # loop, so extrapolating per-frame cost alone underestimates
+                    # the total by roughly a third.
+                    reserve = min(max(cfg.budget.backend_reserve_fraction, 0.0), 0.8)
+                    projected = frame_loop_total / (1.0 - reserve)
+                    allowed = (info.duration_s or expected / 30.0) * \
+                        cfg.budget.realtime_factor_target
+                    if projected > allowed * cfg.budget.runtime_overrun_tolerance:
+                        degraded = True
+                        cfg.local_ba.run_every_n_keyframes += 2
+                        cfg.keyframe.min_frame_gap += 2
+                        cfg.loop.max_verifications = max(
+                            40, cfg.loop.max_verifications // 2)
+                        cfg.loop.candidates_per_query = max(
+                            5, cfg.loop.candidates_per_query // 2)
+                        report("adapting", n_frames / expected,
+                               frames=n_frames, keyframes=len(slam_map.keyframes),
+                               landmarks=len(slam_map.active_landmarks()))
+
                 if n_frames % 15 == 0:
                     report("tracking", n_frames / expected,
                            frames=n_frames, keyframes=len(slam_map.keyframes),
@@ -372,7 +402,7 @@ class SlamPipeline:
             processing_time_s=elapsed, video_duration_s=duration,
             realtime_factor=elapsed / duration if duration > 0 else 0.0,
             applied_width=width, applied_max_features=max_features,
-            quality_reduced=reduced)
+            quality_reduced=reduced or degraded)
 
     # -- helpers ----------------------------------------------------------
     def _try_init(self, frame: DecodedFrame, result, frontend: FeatureTracker,

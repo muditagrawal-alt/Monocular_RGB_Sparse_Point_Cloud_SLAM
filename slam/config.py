@@ -217,6 +217,29 @@ class BudgetConfig:
     adaptive_min_width: int = 384
     adaptive_min_features: int = 400
 
+    runtime_check_fraction: float = 0.3
+    """Fraction of the sequence after which measured throughput is projected to
+    a total. The up-front estimate cannot know how fast the host actually is;
+    measured on a 2 vCPU container the same clip runs 1.2x slower than on an
+    unconstrained laptop, which is the difference between meeting the budget
+    and missing it."""
+
+    backend_reserve_fraction: float = 0.28
+    """Correction applied to the mid-flight projection, which extrapolates
+    per-frame cost only. Two effects make that extrapolation optimistic: loop
+    detection and pose-graph optimisation run after the frame loop (~35% of
+    total), while early frames are cheaper than late ones because the map is
+    smaller. Measured directly on a 300-frame clip, naive extrapolation lands
+    at 0.72x of the true total and is stable across checkpoints, so the
+    projection is divided by (1 - 0.28) to correct it."""
+
+    runtime_overrun_tolerance: float = 0.97
+    """Degrade once the projection reaches this fraction of the budget. The
+    projection is calibrated rather than pessimistic, so the margin is small on
+    purpose: it separates a host that comfortably fits (projects ~9.1 s of a
+    10 s budget) from one that marginally does not (~10.2 s), without shedding
+    loop closure on hosts that never needed it."""
+
 
 @dataclass
 class SlamConfig:

@@ -48,16 +48,42 @@ mode is warping the entire map.
 
 ### Processing time (requirement 6)
 
-Target: a 10-second clip in 10 seconds or less.
+Target: a 10-second clip (300 frames at 30 fps) in 10 seconds or less.
 
-| | |
-|---|---|
-| Video length | 10.0 s (300 frames at 30 fps) |
-| Processing time | **8.5 s** |
-| Realtime factor | **0.85x** |
+Measured in the container, since that is what gets deployed:
 
-Asserted in CI by `tests/performance/test_budget.py`, so a regression past
-realtime fails the build.
+| Container CPU limit | Processing time | Realtime factor | |
+|---|---:|---:|---|
+| 2 vCPU | 9.8 to 10.8 s | 0.98x to 1.08x | straddles the deadline |
+| **4 vCPU** | **8.4 to 8.5 s** | **0.84x to 0.85x** | **deployment target** |
+| 6 vCPU | 9.1 s | 0.91x | no further gain |
+
+Two things worth stating. The pipeline uses more than two cores, so a 2 vCPU
+task lands on the line and crosses it depending on host contention; 4 vCPU is
+the smallest size with real margin, and 6 buys nothing. And the numbers above
+are container measurements, not laptop measurements, because the laptop figure
+(0.86x unconstrained) would have been misleading.
+
+The budget is asserted in CI by `tests/performance/test_budget.py`, so a
+regression past realtime fails the build.
+
+### Degrading instead of overrunning
+
+An up-front estimate cannot know how fast the host is, so the pipeline measures
+its own throughput partway through and projects a total. If that projection
+would breach the budget it sheds optional work for the remainder: less frequent
+bundle adjustment, wider keyframe spacing, a smaller loop-verification budget.
+
+The projection is calibrated rather than guessed. Naive extrapolation of
+per-frame cost lands at 0.72x of the true total, because loop detection and
+pose-graph optimisation run after the frame loop (~35% of runtime) and early
+frames are cheaper than late ones while the map is small. The correction comes
+from that measurement.
+
+Verified on both sides: given a budget it can meet, the guard stays quiet and
+loop closure still runs; given a budget 30% tighter, it engages and brings a
+8.8 s run down to 6.0 s, trading loop closure to hold the deadline. Results
+report `quality_reduced` so a degraded run is never presented as a normal one.
 
 ---
 
