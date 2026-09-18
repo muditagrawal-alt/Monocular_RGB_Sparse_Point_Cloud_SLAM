@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.v311/
+.bench/
+.verify/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# data & artifacts
+data/
+uploads/
+outputs/
+*.mp4
+*.avi
+*.mov
+*.ply
+benchmarks/datasets/
+benchmarks/results/*.json
+# node
+node_modules/
+web/dist/
+.DS_Store
+.env
+.env.*
+!.env.example

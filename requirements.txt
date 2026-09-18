@@ -1,0 +1,11 @@
+# Runtime — pinned and verified together on Python 3.11 (pip check clean).
+# NOTE: gtsam 4.2.2 requires numpy<2, which forces opencv<=4.11.x.
+# Do not bump opencv past 4.11.0.86 without also moving off gtsam 4.2.2.
+numpy==1.26.4
+opencv-python-headless==4.11.0.86
+gtsam==4.2.2
+scipy==1.14.1
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
