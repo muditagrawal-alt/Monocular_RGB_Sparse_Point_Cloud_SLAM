@@ -4,7 +4,10 @@
 **Repo:** `muditagrawal-alt/Monocular_RGB_Sparse_Point_Cloud_SLAM`
 **Author:** Mudit Agrawal
 **Plan date:** 2026-09-18
-**Status:** Awaiting review — no code written yet
+**Status:** Phases 0 to 5 complete and verified locally. Phase 6 (cloud
+deployment) is the remaining gated step. Measured results are in
+[README.md](README.md); this document is kept as the original plan of record,
+with a note below on where reality diverged from it.
 
 ---
 
@@ -438,3 +441,44 @@ docs/            architecture, design decisions, benchmark results
   ablation table.
 - **Sensible engineering throughout:** pinned reproducible builds, CI, tests at three levels, cost
   guardrails, and graceful degradation instead of a blown time budget.
+
+
+---
+
+## 14. Post-Build Note: Where This Plan Met Reality
+
+Kept deliberately, because the differences are the interesting part.
+
+**Held up.** The KLT-over-descriptor-matching decision was the right call and
+delivered the predicted speedup. GTSAM was the right optimiser and never became
+a bottleneck. The dependency pinning survived contact with the container. The
+layered approach to drift (L1 to L4) is what the ablation actually measures.
+
+**Cost more than expected.** Getting loop closure to fire took five distinct
+fixes, none of which were visible from the plan: descriptors had to be computed
+at the tracked points rather than re-detected, cross-check matching replaced the
+ratio test, retrieval needed TF-IDF plus a spatial signal, the verification
+RANSAC threshold had to be loosened because a loop constraint spans accumulated
+drift, and the verification budget had to be spent in order of closest
+trajectory approach. The plan treated "loop closure detection" as one line item.
+
+**The estimate was optimistic in the wrong place.** The plan projected 4.8 s for
+a 300-frame clip. The real figure is 8.4 s in a 4 vCPU container. Two reasons:
+the projection assumed local BA would cost ~50 ms per window when it costs more
+as the map grows, and it ignored that loop detection is ~35% of total runtime.
+The budget still holds, but with less margin than predicted.
+
+**Missed entirely.** The plan never considered how many cores the pipeline
+needs. A 2 vCPU task straddles the deadline while 4 vCPU has margin, which is
+the single most important deployment fact and only appeared once the container
+was actually run under a CPU limit. Nor did it anticipate that the synthetic
+fixture itself would twice produce results that looked like algorithm failures:
+a scene layout that put structure at near-zero depth for two of the three
+motions, and texture too repetitive for any appearance-based loop closure to
+work. Both were fixture defects, and both cost real debugging time.
+
+**Deliberately deferred.** Global BA (L5) is implemented as configuration but
+left off by default, per the recommendation in section 12. Real-dataset
+benchmarking against TUM RGB-D was scoped in section 8 and has not been run;
+the accuracy evidence is currently synthetic ground truth only, which is exact
+but easier than real imagery.
