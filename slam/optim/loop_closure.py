@@ -68,6 +68,7 @@ class BoWVocabulary:
         self.size = size
         self.centres: np.ndarray | None = None
         self._rng = np.random.default_rng(seed)
+        self._assign_matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
         self.idf: np.ndarray | None = None
 
     def train(self, descriptors: np.ndarray, iterations: int = 6) -> bool:
@@ -95,25 +96,59 @@ class BoWVocabulary:
         self.centres = centres
         return True
 
-    @staticmethod
-    def _hamming(desc: np.ndarray, centres: np.ndarray) -> np.ndarray:
-        """Pairwise Hamming distances, NxK."""
-        d = np.unpackbits(desc, axis=1).astype(np.int16)
-        c = np.unpackbits(centres, axis=1).astype(np.int16)
-        # (a - b)^2 == a XOR b for bits, so a matmul gives the distances
-        return (d @ (1 - c).T) + ((1 - d) @ c.T)
-
     def _assign(self, desc: np.ndarray, centres: np.ndarray) -> np.ndarray:
-        return np.argmin(self._hamming(desc, centres), axis=1)
+        """Nearest cluster centre for each descriptor, in Hamming space.
 
-    def describe(self, descriptors: np.ndarray | None) -> np.ndarray | None:
-        """L2-normalised term-frequency histogram for one keyframe."""
-        if self.centres is None or descriptors is None or len(descriptors) == 0:
+        Delegates to OpenCV's brute-force matcher, which has a SIMD popcount
+        path. Only the argmin is needed, never the full distance matrix: an
+        earlier version built the whole NxK matrix with np.unpackbits and a
+        matmul, which profiled at 223 ms per call and dominated the entire
+        pipeline runtime.
+        """
+        if len(desc) == 0:
+            return np.zeros(0, dtype=np.int64)
+        matches = self._assign_matcher.match(
+            np.ascontiguousarray(desc, dtype=np.uint8),
+            np.ascontiguousarray(centres, dtype=np.uint8))
+        out = np.zeros(len(desc), dtype=np.int64)
+        for m in matches:
+            out[m.queryIdx] = m.trainIdx
+        return out
+
+    def term_frequency(self, descriptors: np.ndarray | None) -> np.ndarray | None:
+        """Raw word counts for one keyframe."""
+        if (self.centres is None or descriptors is None or len(descriptors) == 0
+                or descriptors.shape[1] != self.centres.shape[1]):
             return None
         assign = self._assign(np.asarray(descriptors, dtype=np.uint8), self.centres)
-        hist = np.bincount(assign, minlength=self.size).astype(np.float32)
-        norm = np.linalg.norm(hist)
-        return hist / norm if norm > 0 else None
+        return np.bincount(assign, minlength=self.size).astype(np.float32)
+
+    def fit_idf(self, term_frequencies: list[np.ndarray]) -> None:
+        """Compute inverse document frequency over the keyframe set.
+
+        Without IDF, words that appear in nearly every keyframe dominate the
+        similarity and all keyframes look alike. Measured on a synthetic orbit,
+        plain term frequency ranked the true loop partner 17th of 86 candidates
+        -- outside any sane shortlist -- because common words swamped the
+        distinctive ones. IDF is what makes retrieval discriminative.
+        """
+        if not term_frequencies:
+            self.idf = None
+            return
+        n_docs = len(term_frequencies)
+        df = np.zeros(self.size, dtype=np.float32)
+        for tf in term_frequencies:
+            df += (tf > 0).astype(np.float32)
+        self.idf = np.log((n_docs + 1.0) / (df + 1.0)).astype(np.float32) + 1.0
+
+    def describe(self, descriptors: np.ndarray | None) -> np.ndarray | None:
+        """L2-normalised TF-IDF histogram for one keyframe."""
+        tf = self.term_frequency(descriptors)
+        if tf is None:
+            return None
+        vec = tf * self.idf if self.idf is not None else tf
+        norm = np.linalg.norm(vec)
+        return vec / norm if norm > 0 else None
 
 
 class LoopDetector:
@@ -123,14 +158,14 @@ class LoopDetector:
         self.camera = camera
         self.cfg = config
         self.vocab = BoWVocabulary(config.vocab_size)
-        self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+        self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self._trained = False
-        self._consistency: dict[int, int] = {}
 
     # -- vocabulary -------------------------------------------------------
     def build_vocabulary(self, keyframes: list[Keyframe]) -> bool:
         """Train the vocabulary from descriptors across the sequence."""
-        pool = [kf.descriptors for kf in keyframes if kf.descriptors is not None]
+        pool = [kf.descriptors for kf in keyframes
+                if kf.descriptors is not None and len(kf.descriptors) > 0]
         if not pool:
             return False
         desc = np.vstack(pool)
@@ -142,8 +177,16 @@ class LoopDetector:
         return self._trained
 
     def encode_all(self, keyframes: list[Keyframe]) -> None:
-        for kf in keyframes:
-            kf.bow = self.vocab.describe(kf.descriptors)
+        """Encode every keyframe, fitting IDF over the sequence first."""
+        tfs = [self.vocab.term_frequency(kf.descriptors) for kf in keyframes]
+        self.vocab.fit_idf([t for t in tfs if t is not None])
+        for kf, tf in zip(keyframes, tfs):
+            if tf is None:
+                kf.bow = None
+                continue
+            vec = tf * self.vocab.idf if self.vocab.idf is not None else tf
+            norm = np.linalg.norm(vec)
+            kf.bow = (vec / norm).astype(np.float32) if norm > 0 else None
 
     # -- detection --------------------------------------------------------
     def detect(self, slam_map: SlamMap) -> LoopDetectionStats:
@@ -171,47 +214,104 @@ class LoopDetector:
             stats.duration_ms = (time.perf_counter() - started) * 1000
             return stats
 
-        accepted: list[LoopCandidate] = []
-        consistent: dict[int, int] = {}
+        verified: list[LoopCandidate] = []
+        centres = {kf.id: kf.pose.center for kf in kfs}
 
-        for kf in kfs:
+        # Build one global candidate list rather than spending a per-query
+        # budget in sequence. Verifying in keyframe order exhausts the budget
+        # on early keyframes, which cannot have loop partners yet, and starves
+        # the later ones where loops actually close.
+        pairs: dict[tuple[int, int], float] = {}
+        for kf in kfs[:: max(1, self.cfg.query_stride)]:
             if kf.bow is None:
                 continue
             stats.n_queries += 1
-
-            # Only consider keyframes far enough back in time; nearby ones are
-            # just ordinary tracking, not a loop.
-            older = [(other_id, float(kf.bow @ bow))
-                     for other_id, bow in bows.items()
-                     if kf.id - other_id >= self.cfg.min_keyframe_separation]
-            if not older:
+            eligible = [o for o in kfs
+                        if kf.id - o.id >= self.cfg.min_keyframe_separation
+                        and o.bow is not None]
+            if not eligible:
                 continue
 
-            older.sort(key=lambda p: -p[1])
-            shortlist = [(oid, sim) for oid, sim in older[: self.cfg.top_k_candidates]
-                         if sim >= self.cfg.min_bow_similarity]
-            if not shortlist:
-                stats.n_rejected_similarity += 1
-                continue
-            stats.n_shortlisted += len(shortlist)
+            # Two independent signals, fused by reciprocal rank because their
+            # scores are not on comparable scales: appearance similarity
+            # (robust to drift, weak on repetitive texture) and proximity in
+            # the current estimate (precise until drift exceeds the loop).
+            bow_rank = {oid: r for r, (_, oid) in enumerate(sorted(
+                ((float(kf.bow @ o.bow), o.id) for o in eligible), reverse=True))}
+            dist_rank = {o.id: r for r, o in enumerate(sorted(
+                eligible,
+                key=lambda o: float(np.linalg.norm(centres[o.id] - centres[kf.id]))))}
 
-            for other_id, sim in shortlist:
-                cand = self._verify(slam_map, kf, slam_map.keyframes[other_id], sim)
-                if cand.verified:
-                    # Temporal consistency: require the same region to be
-                    # proposed by consecutive keyframes before trusting it.
-                    bucket = other_id // 5
-                    consistent[bucket] = consistent.get(bucket, 0) + 1
-                    if consistent[bucket] >= self.cfg.consistency_required:
-                        accepted.append(cand)
-                        stats.n_verified += 1
-                    else:
-                        stats.n_rejected_consistency += 1
-                    break
-                if "matches" in cand.reason:
-                    stats.n_rejected_matches += 1
-                else:
-                    stats.n_rejected_geometry += 1
+            scored = []
+            for o in eligible:
+                rrf = 1.0 / (10 + bow_rank[o.id]) + 1.0 / (10 + dist_rank[o.id])
+                scored.append((rrf, o.id))
+            scored.sort(reverse=True)
+
+            keep = self.cfg.top_k_candidates + self.cfg.spatial_candidates
+            for rrf, oid in scored[:keep]:
+                stats.n_shortlisted += 1
+                pairs[(kf.id, oid)] = max(pairs.get((kf.id, oid), 0.0), rrf)
+
+        # Spend the verification budget where a loop can plausibly be, rather
+        # than spreading it evenly. A loop exists only where the trajectory
+        # comes back near its own past, so queries are ordered by how close
+        # they get to any temporally distant keyframe. Splitting the budget
+        # evenly instead gave every query ~9 candidates and the true loop sat
+        # at rank 10, so it was never verified at all.
+        by_query: dict[int, list[tuple[float, int]]] = {}
+        for (qid, oid), score in pairs.items():
+            by_query.setdefault(qid, []).append((score, oid))
+
+        def closest_approach(qid: int) -> float:
+            return min((float(np.linalg.norm(centres[oid] - centres[qid]))
+                        for _, oid in by_query[qid]), default=np.inf)
+
+        query_order = sorted(by_query, key=closest_approach)
+
+        budget = self.cfg.max_verifications
+        per_query = max(1, self.cfg.candidates_per_query)
+
+        ordered: list[tuple[int, int]] = []
+        for qid in query_order:
+            cands = sorted(by_query[qid], reverse=True)
+            ordered.extend((qid, oid) for _, oid in cands[:per_query])
+
+        best_per_query: dict[int, LoopCandidate] = {}
+        for qid, oid in ordered[:budget]:
+            cand = self._verify(slam_map, slam_map.keyframes[qid],
+                                slam_map.keyframes[oid],
+                                float(slam_map.keyframes[qid].bow
+                                      @ slam_map.keyframes[oid].bow))
+            if cand.verified:
+                prev = best_per_query.get(qid)
+                if prev is None or cand.n_inliers > prev.n_inliers:
+                    best_per_query[qid] = cand
+            elif "matches" in cand.reason:
+                stats.n_rejected_matches += 1
+            else:
+                stats.n_rejected_geometry += 1
+        verified = list(best_per_query.values())
+
+        # Temporal consistency: a region must be proposed by several distinct
+        # query keyframes. A single isolated match is far more likely to be
+        # perceptual aliasing than a real revisit, and a false loop warps the
+        # whole map.
+        bucket_size = max(1, self.cfg.region_bucket)
+        votes: dict[int, int] = {}
+        for cand in verified:
+            votes[cand.match_id // bucket_size] = votes.get(cand.match_id // bucket_size, 0) + 1
+
+        accepted = []
+        for cand in verified:
+            corroborated = (votes[cand.match_id // bucket_size]
+                            >= self.cfg.consistency_required)
+            strong = cand.n_inliers >= self.cfg.strong_inlier_count
+            if corroborated or strong:
+                accepted.append(cand)
+                stats.n_verified += 1
+            else:
+                stats.n_rejected_consistency += 1
 
         stats.loops = accepted
         stats.duration_ms = (time.perf_counter() - started) * 1000
@@ -228,44 +328,38 @@ class LoopDetector:
         cand = LoopCandidate(query_id=query.id, match_id=match.id, similarity=similarity)
 
         if (query.descriptors is None or match.descriptors is None
-                or query.keypoints is None or match.keypoints is None):
+                or query.desc_indices is None or match.desc_indices is None
+                or len(query.descriptors) == 0 or len(match.descriptors) == 0):
             cand.reason = "no descriptors"
             return cand
 
-        raw = self._matcher.knnMatch(query.descriptors, match.descriptors, k=2)
-        good = [m for pair in raw if len(pair) == 2
-                for m, n in [pair] if m.distance < 0.75 * n.distance]
+        # Mutual-best matching with a Hamming cap. RANSAC below is the real
+        # filter, so being slightly permissive here costs nothing and recovers
+        # true loops that a strict ratio test discards.
+        good = [m for m in self._matcher.match(query.descriptors, match.descriptors)
+                if m.distance <= self.cfg.match_max_distance]
         cand.n_matches = len(good)
         if len(good) < self.cfg.min_match_count:
             cand.reason = f"too few matches ({len(good)})"
             return cand
 
-        # Pair each matched keypoint in `match` with a mapped landmark.
+        # Descriptors were computed at the tracked points, so a match maps
+        # straight to a landmark with no proximity test and no association
+        # error: descriptor row -> tracked point index -> landmark.
+        match_pts = match.desc_indices[[m.trainIdx for m in good]]
+        query_pts = query.desc_indices[[m.queryIdx for m in good]]
         obj_pts: list[np.ndarray] = []
         img_pts: list[np.ndarray] = []
-        match_pt_to_lm = {i: lm for i, lm in match.landmark_ids.items()}
-        if not match_pt_to_lm:
-            cand.reason = "matched keyframe has no landmarks"
-            return cand
-
-        match_kp = match.keypoints
-        for m in good:
-            # nearest mapped point in `match` to this keypoint
-            kp = match_kp[m.trainIdx]
-            best_idx, best_d = None, 1e9
-            for pt_idx in match_pt_to_lm:
-                if pt_idx >= len(match.points):
-                    continue
-                d = float(np.linalg.norm(match.points[pt_idx] - kp))
-                if d < best_d:
-                    best_d, best_idx = d, pt_idx
-            if best_idx is None or best_d > 3.0:
+        n_query_pts = len(query.points)
+        for mp, qp in zip(match_pts.tolist(), query_pts.tolist()):
+            lm_id = match.landmark_ids.get(mp)
+            if lm_id is None or qp >= n_query_pts:
                 continue
-            lm = slam_map.landmarks.get(match_pt_to_lm[best_idx])
+            lm = slam_map.landmarks.get(lm_id)
             if lm is None or lm.is_outlier:
                 continue
             obj_pts.append(lm.position)
-            img_pts.append(query.keypoints[m.queryIdx])
+            img_pts.append(query.points[qp])
 
         if len(obj_pts) < self.cfg.min_inlier_count:
             cand.reason = f"too few 2D-3D pairs for geometry ({len(obj_pts)})"
@@ -274,7 +368,8 @@ class LoopDetector:
         obj = np.asarray(obj_pts, dtype=np.float64).reshape(-1, 1, 3)
         img = np.asarray(img_pts, dtype=np.float64).reshape(-1, 1, 2)
         ok, rvec, tvec, inliers = cv2.solvePnPRansac(
-            obj, img, self.camera.K, None, iterationsCount=200,
+            obj, img, self.camera.K, None,
+            iterationsCount=self.cfg.ransac_iterations,
             reprojectionError=self.cfg.ransac_threshold_px, confidence=0.99,
             flags=cv2.SOLVEPNP_ITERATIVE)
 

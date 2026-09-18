@@ -74,11 +74,11 @@ class TrackingConfig:
 class KeyframeConfig:
     """Keyframe insertion policy."""
 
-    min_frame_gap: int = 3
+    min_frame_gap: int = 5
     max_frame_gap: int = 20
     track_ratio_threshold: float = 0.75
     """Insert once tracked points drop below this fraction of the last keyframe."""
-    min_translation_ratio: float = 0.01
+    min_translation_ratio: float = 0.04
     """Translation relative to median scene depth, to guarantee parallax."""
 
 
@@ -105,7 +105,13 @@ class LocalBAConfig:
     max_iterations: int = 8
     huber_k: float = 1.345
     pixel_sigma: float = 1.5
-    run_every_n_keyframes: int = 1
+    run_every_n_keyframes: int = 2
+    """Local BA is the single largest cost; every other keyframe still keeps
+    error growth in check because windows overlap."""
+    max_landmarks: int = 400
+    """Cap on landmarks per solve. BA cost grows with landmark count, so the
+    best-observed subset is optimised to keep the per-keyframe cost bounded as
+    the map grows. Landmarks left out are still corrected by the pose graph."""
 
 
 @dataclass
@@ -114,17 +120,61 @@ class LoopClosureConfig:
 
     enabled: bool = True
     orb_features: int = 500
-    vocab_size: int = 256
+    vocab_size: int = 512
+    """Larger vocabularies quantise descriptors more finely, which sharpens
+    retrieval; 512 words costs only a few ms more to train."""
     vocab_train_descriptors: int = 20000
     min_keyframe_separation: int = 15
     """Refuse loop candidates too close in time; those are just tracking."""
-    top_k_candidates: int = 3
-    min_bow_similarity: float = 0.15
-    min_match_count: int = 25
-    min_inlier_count: int = 18
-    ransac_threshold_px: float = 3.0
+    top_k_candidates: int = 10
+    """Bag-of-words ranking is only a shortlist and is weakly discriminative on
+    repetitive scenes, so several candidates are passed to geometric
+    verification, which is what actually decides."""
+    min_bow_similarity: float = 0.10
+    spatial_candidates: int = 4
+    """Candidates proposed by proximity in the *current* pose estimate, in
+    addition to appearance. Appearance retrieval degrades on scenes with
+    homogeneous texture, while spatial proposal degrades once drift exceeds the
+    loop size; taking the union is robust where either alone is not."""
+    query_stride: int = 1
+    """Attempt detection from every Nth keyframe. Consecutive keyframes see
+    essentially the same place, so querying all of them multiplies cost without
+    finding new loops."""
+    candidates_per_query: int = 10
+    """Candidates verified per query keyframe, for queries that get a turn."""
+    max_verifications: int = 110
+    """Hard cap on geometric verifications, to bound worst-case runtime.
+    Verification costs ~14 ms, so this is the main lever on loop-closure time.
+    Because queries are tried in order of closest approach, the budget is spent
+    on the keyframes where a loop can actually be, and a small cap suffices."""
+    match_max_distance: int = 64
+    """Hamming cap on accepted ORB matches (descriptors are 256-bit).
+    Cross-check matching with a distance cap recovers far more true matches
+    than a 0.75 ratio test on repetitive texture -- measured 46 vs 11 on a
+    synthetic orbit -- and RANSAC remains the real filter."""
+    min_match_count: int = 20
+    min_inlier_count: int = 12
+    ransac_threshold_px: float = 8.0
+    """Deliberately looser than the 3 px used for frame-to-frame tracking.
+    A loop constraint spans the whole accumulated drift, so the map geometry at
+    the two ends has deformed relative to each other; the correspondences are
+    still correct, they just do not reproject as tightly. Measured on a
+    synthetic orbit: at 3 px verification found 5 inliers and the true loop was
+    rejected, while at 8 px it found 17 -- all of them geometrically correct --
+    and recovered the revisited pose to within 0.09 units."""
+    ransac_iterations: int = 300
     consistency_required: int = 2
-    """Candidates must recur across this many consecutive keyframes."""
+    """A region must be proposed by this many distinct query keyframes before
+    it is trusted, which rejects one-off perceptual aliasing."""
+    strong_inlier_count: int = 20
+    """A candidate with at least this many geometric inliers is accepted
+    without corroboration. The consistency rule guards against perceptual
+    aliasing, but aliasing produces weak, marginal matches; a strongly
+    supported pair is not aliasing, and requiring a second vote would discard
+    the one real loop in a sequence that revisits a place only once."""
+    region_bucket: int = 5
+    """Keyframes are grouped into regions of this size for the consistency
+    check, since consecutive keyframes see essentially the same place."""
 
 
 @dataclass

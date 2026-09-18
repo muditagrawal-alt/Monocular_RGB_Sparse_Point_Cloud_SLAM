@@ -125,7 +125,10 @@ class Keyframe:
     landmark_ids: dict[int, int] = field(default_factory=dict)
     """point index -> landmark id."""
     descriptors: np.ndarray | None = None
-    """ORB descriptors, computed lazily for loop-closure retrieval only."""
+    """ORB descriptors, computed at keyframes only, for loop-closure retrieval."""
+    desc_indices: np.ndarray | None = None
+    """Maps descriptor row -> index into `points`, so a descriptor match links
+    directly to a tracked point and therefore to its landmark."""
     keypoints: np.ndarray | None = None
     bow: np.ndarray | None = None
     odometry_pose: Pose | None = None

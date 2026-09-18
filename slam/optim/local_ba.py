@@ -87,6 +87,13 @@ class LocalBundleAdjuster:
         if not lm_obs:
             return BAResult(False, "no landmarks with 2+ observations in window")
 
+        # Keep the best-constrained landmarks when the map outgrows the budget:
+        # more observations means a better-determined point, and the ones left
+        # out are still carried by the pose-graph correction.
+        if len(lm_obs) > self.cfg.max_landmarks:
+            ranked = sorted(lm_obs.items(), key=lambda kv: -len(kv[1]))
+            lm_obs = dict(ranked[: self.cfg.max_landmarks])
+
         graph = gtsam.NonlinearFactorGraph()
         initial = gtsam.Values()
         noise = robust_pixel_noise(self.cfg.pixel_sigma, self.cfg.huber_k)
