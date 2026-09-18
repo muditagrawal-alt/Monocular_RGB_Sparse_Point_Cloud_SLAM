@@ -1,0 +1,15 @@
+services:
+  slam:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: monocular-slam:local
+    ports:
+      - "8000:8000"
+    # Matches the 2 vCPU / 4 GB task the deployment targets, so local timings
+    # are representative of production rather than of the dev machine.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
