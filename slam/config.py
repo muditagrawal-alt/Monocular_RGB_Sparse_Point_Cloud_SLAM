@@ -170,6 +170,13 @@ class LoopClosureConfig:
     than the deadline when there is not, which is the right way round: the map
     is already built and correct at that point."""
 
+    budget_headroom: float = 0.80
+    """Fraction of the remaining time loop detection may consume. Without a
+    margin the stage simply expands to fill whatever is left, so savings made
+    earlier in the pipeline get spent here instead of shortening the run: at
+    width 512 the front end got 950 ms cheaper and loop detection grew by
+    1140 ms, leaving the total unchanged."""
+
     min_verifications: int = 40
     """Floor for the scaled budget. Below this, detection is so unlikely to
     succeed that the time is better not spent at all."""
