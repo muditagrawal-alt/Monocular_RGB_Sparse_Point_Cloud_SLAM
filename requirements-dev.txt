@@ -4,3 +4,6 @@ pytest-cov==6.0.0
 ruff==0.8.4
 mypy==1.14.0
 evo==1.37.1
+# required by starlette.testclient / fastapi.testclient, which tests/integration
+# uses to drive the API. Not a runtime dependency of the service itself.
+httpx==0.28.1
