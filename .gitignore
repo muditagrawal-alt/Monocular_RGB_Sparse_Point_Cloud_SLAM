@@ -31,4 +31,5 @@ web/dist/
 web/node_modules/
 .playwright-cli/
 benchmarks/datasets/wild/
-samples/
+samples/*.mp4
+!samples/README.md
