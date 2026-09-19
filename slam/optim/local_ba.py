@@ -89,7 +89,8 @@ class LocalBundleAdjuster:
                     continue
                 lm_obs.setdefault(lm_id, []).append((kf_id, pt_idx))
 
-        lm_obs = {k: v for k, v in lm_obs.items() if len(v) >= 2}
+        lm_obs = {k: v for k, v in lm_obs.items()
+                  if len(v) >= self.cfg.min_observations}
         if not lm_obs:
             return BAResult(False, "no landmarks with 2+ observations in window")
 

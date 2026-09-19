@@ -114,6 +114,14 @@ class LocalBAConfig:
     run_every_n_keyframes: int = 2
     """Local BA is the single largest cost; every other keyframe still keeps
     error growth in check because windows overlap."""
+    min_observations: int = 3
+    """Views a landmark needs before it may enter the solve. A point seen in
+    only two views is exactly determined by those two observations: it adds
+    three free parameters and no constraint, so instead of anchoring the poses
+    it absorbs their error. On an orbiting sequence 62% of landmarks are
+    two-view, and including them made bundle adjustment trebles the trajectory
+    error rather than reduce it."""
+
     max_landmarks: int = 400
     """Cap on landmarks per solve. BA cost grows with landmark count, so the
     best-observed subset is optimised to keep the per-keyframe cost bounded as
