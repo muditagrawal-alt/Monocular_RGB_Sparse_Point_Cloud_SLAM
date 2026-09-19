@@ -22,19 +22,36 @@ def test_gtsam_pose_round_trip(rng):
 
 
 def test_gtsam_projection_matches_our_camera(camera, rng):
-    """A convention mismatch here would surface only as a subtly wrong map."""
+    """A convention mismatch here would surface only as a subtly wrong map.
+
+    The pose is perturbed rather than fully random: projection is undefined for
+    a point behind the camera, and an unconstrained random rotation puts it
+    there often enough to make this test flaky depending on how much of the
+    shared rng earlier tests consumed.
+    """
     import gtsam
 
-    R, _ = np.linalg.qr(rng.normal(size=(3, 3)))
-    if np.linalg.det(R) < 0:
-        R[:, 0] *= -1
-    pose = Pose(R, rng.normal(size=3) * 0.2)
     point = np.array([0.8, -0.4, 6.0])
-    gtsam_cam = gtsam.PinholeCameraCal3_S2(to_gtsam_pose(pose),
-                                           to_gtsam_calibration(camera))
-    expected = np.asarray(gtsam_cam.project(gtsam.Point3(*point))).ravel()
-    assert np.allclose(camera.project(pose.world_to_camera(point.reshape(1, 3)))[0],
-                       expected, atol=1e-9)
+    for _ in range(8):
+        axis = rng.normal(size=3)
+        axis /= np.linalg.norm(axis)
+        angle = rng.uniform(-0.3, 0.3)          # small rotation, keeps the point ahead
+        K = np.array([[0, -axis[2], axis[1]],
+                      [axis[2], 0, -axis[0]],
+                      [-axis[1], axis[0], 0]])
+        R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * (K @ K)
+        pose = Pose(R, rng.normal(size=3) * 0.2)
+
+        if pose.world_to_camera(point.reshape(1, 3))[0, 2] <= 0.1:
+            continue                            # behind the camera, try another
+
+        gtsam_cam = gtsam.PinholeCameraCal3_S2(to_gtsam_pose(pose),
+                                               to_gtsam_calibration(camera))
+        expected = np.asarray(gtsam_cam.project(gtsam.Point3(*point))).ravel()
+        assert np.allclose(camera.project(pose.world_to_camera(point.reshape(1, 3)))[0],
+                           expected, atol=1e-9)
+        return
+    pytest.fail("could not generate a pose with the test point in front of the camera")
 
 
 @pytest.fixture
