@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from slam.config import SlamConfig
+from slam.config import config_from_env
 from slam.io.exporters import result_to_viewer_json
 from slam.pipeline import SlamPipeline
 
@@ -73,7 +73,7 @@ def _run_slam(video_path: str, focal_px: float | None, hfov_deg: float | None,
         except OSError:
             pass   # progress reporting must never break the pipeline
 
-    result = SlamPipeline(SlamConfig()).run(
+    result = SlamPipeline(config_from_env()).run(
         video_path, focal_px=focal_px, hfov_deg=hfov_deg, progress=report)
     return result_to_viewer_json(result)
 

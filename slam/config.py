@@ -6,6 +6,7 @@ IMPLEMENTATION_PLAN.md section 7: a 10 s / 300-frame clip in under 10 s on CPU.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 
@@ -300,3 +301,54 @@ class SlamConfig:
     """Decimate input above this rate; 60 fps footage gains little accuracy."""
 
     seed: int = 0
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    try:
+        return int(raw) if raw is not None else default
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    try:
+        return float(raw) if raw is not None else default
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def config_from_env() -> SlamConfig:
+    """Build a configuration, letting the environment override the few settings
+    that differ between deployments.
+
+    Processing width and the feature budget are the two levers that actually
+    move runtime, and the right value depends on how fast the host is: the same
+    clip runs about 2.5x slower on a Fargate vCPU than on an Apple Silicon
+    core. Exposing them as environment variables means a deployment can be
+    tuned without rebuilding the image, and the applied values are reported
+    back in every result so a run is never ambiguous about what produced it.
+    """
+    cfg = SlamConfig()
+    cfg.frontend.target_width = _env_int("SLAM_TARGET_WIDTH", cfg.frontend.target_width)
+    cfg.frontend.max_features = _env_int("SLAM_MAX_FEATURES", cfg.frontend.max_features)
+    cfg.frontend.fb_check_interval = _env_int("SLAM_FB_INTERVAL",
+                                              cfg.frontend.fb_check_interval)
+    cfg.local_ba.run_every_n_keyframes = _env_int("SLAM_BA_EVERY",
+                                                  cfg.local_ba.run_every_n_keyframes)
+    cfg.local_ba.window_size = _env_int("SLAM_BA_WINDOW", cfg.local_ba.window_size)
+    cfg.loop.enabled = _env_bool("SLAM_LOOP_CLOSURE", cfg.loop.enabled)
+    cfg.pose_graph.enabled = cfg.loop.enabled
+    cfg.budget.enabled = _env_bool("SLAM_ADAPTIVE_BUDGET", cfg.budget.enabled)
+    cfg.budget.realtime_factor_target = _env_float("SLAM_RTF_TARGET",
+                                                   cfg.budget.realtime_factor_target)
+    cfg.seed = _env_int("SLAM_SEED", cfg.seed)
+    return cfg
