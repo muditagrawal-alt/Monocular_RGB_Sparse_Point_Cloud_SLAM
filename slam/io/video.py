@@ -147,3 +147,104 @@ class VideoDecoder:
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=2.0)
+
+
+class ImageSequenceDecoder:
+    """Iterates a folder of images as if it were a video.
+
+    Benchmark datasets ship image sequences with per-frame timestamps rather
+    than encoded video, and feeding those directly avoids the compression
+    artefacts a re-encode would introduce. It also lets a user point the
+    pipeline at a folder of frames.
+
+    `timestamps_file` is the TUM `rgb.txt` format: lines of `timestamp path`,
+    with `#` comments. Without it, files are ordered by name at a fixed rate.
+    """
+
+    def __init__(self, folder: str | Path, target_width: int = 640,
+                 timestamps_file: str | Path | None = None,
+                 max_fps: float = 30.0, max_frames: int | None = None,
+                 keep_color: bool = True) -> None:
+        self.folder = Path(folder)
+        if not self.folder.is_dir():
+            raise NotADirectoryError(str(folder))
+
+        self.entries = self._load_entries(timestamps_file)
+        if not self.entries:
+            raise ValueError(f"no images found in {folder}")
+
+        first = cv2.imread(str(self.entries[0][1]), cv2.IMREAD_COLOR)
+        if first is None:
+            raise ValueError(f"cannot read {self.entries[0][1]}")
+        height, width = first.shape[:2]
+
+        # Derive a nominal frame rate from the timestamps so downstream budget
+        # calculations have a real duration to work with.
+        if len(self.entries) > 1:
+            span = self.entries[-1][0] - self.entries[0][0]
+            fps = (len(self.entries) - 1) / span if span > 0 else 30.0
+        else:
+            fps = 30.0
+
+        self.info = VideoInfo(path=str(self.folder), width=width, height=height,
+                              fps=float(np.clip(fps, 1.0, 240.0)),
+                              frame_count=len(self.entries),
+                              duration_s=(self.entries[-1][0] - self.entries[0][0]
+                                          if len(self.entries) > 1 else 0.0))
+        self.target_width = target_width
+        self.max_frames = max_frames
+        self.keep_color = keep_color
+        self.scale = min(1.0, target_width / width) if width else 1.0
+        self.out_width = max(1, int(round(width * self.scale)))
+        self.out_height = max(1, int(round(height * self.scale)))
+        self.step = max(1, int(round(self.info.fps / max_fps))) if max_fps > 0 else 1
+        self.effective_fps = self.info.fps / self.step
+
+    def _load_entries(self, timestamps_file: str | Path | None
+                      ) -> list[tuple[float, Path]]:
+        if timestamps_file is not None:
+            entries: list[tuple[float, Path]] = []
+            for line in Path(timestamps_file).read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                path = self.folder.parent / parts[1]
+                if not path.exists():
+                    path = self.folder / Path(parts[1]).name
+                if path.exists():
+                    entries.append((float(parts[0]), path))
+            return entries
+
+        suffixes = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
+        files = sorted(p for p in self.folder.iterdir() if p.suffix.lower() in suffixes)
+        return [(i / 30.0, p) for i, p in enumerate(files)]
+
+    @property
+    def expected_frames(self) -> int:
+        n = len(self.entries) // self.step
+        return min(n, self.max_frames) if self.max_frames else n
+
+    def __iter__(self):
+        emitted = 0
+        t0 = self.entries[0][0]
+        for index, (timestamp, path) in enumerate(self.entries):
+            if index % self.step != 0:
+                continue
+            if self.max_frames is not None and emitted >= self.max_frames:
+                break
+            frame = cv2.imread(str(path), cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+            if self.scale < 1.0:
+                frame = cv2.resize(frame, (self.out_width, self.out_height),
+                                   interpolation=cv2.INTER_AREA)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            yield DecodedFrame(index=emitted, timestamp=timestamp - t0, gray=gray,
+                               color_small=frame if self.keep_color else None)
+            emitted += 1
+
+    def close(self) -> None:
+        """Present for parity with VideoDecoder; nothing to release."""

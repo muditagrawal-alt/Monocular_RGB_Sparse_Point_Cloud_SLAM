@@ -24,7 +24,7 @@ from .core.initializer import Initializer
 from .core.keyframe_policy import KeyframePolicy
 from .core.mapper import Mapper
 from .core.tracker import Tracker
-from .io.video import DecodedFrame, VideoDecoder, VideoInfo, probe_video
+from .io.video import DecodedFrame, ImageSequenceDecoder, VideoDecoder, VideoInfo, probe_video
 from .optim.local_ba import LocalBundleAdjuster
 from .optim.loop_closure import LoopDetector
 from .optim.pose_graph import PoseGraphOptimizer
@@ -149,8 +149,13 @@ class SlamPipeline:
 
     # -- main entry point -------------------------------------------------
     def run(self, video_path: str | Path, *, focal_px: float | None = None,
-            hfov_deg: float | None = None,
+            hfov_deg: float | None = None, timestamps_file: str | Path | None = None,
             progress: ProgressCallback | None = None) -> SlamResult:
+        """Run SLAM over a video file or a folder of images.
+
+        A directory is read as an image sequence, which is how benchmark
+        datasets ship and avoids the artefacts of re-encoding them to video.
+        """
         t_start = time.perf_counter()
         timings = StageTimings()
 
@@ -158,12 +163,18 @@ class SlamPipeline:
             if progress is not None:
                 progress(stage, float(np.clip(frac, 0.0, 1.0)), extra)
 
+        is_folder = Path(video_path).is_dir()
         try:
-            info = probe_video(video_path)
+            if is_folder:
+                probe = ImageSequenceDecoder(video_path, target_width=10 ** 6,
+                                             timestamps_file=timestamps_file)
+                info = probe.info
+            else:
+                info = probe_video(video_path)
         except Exception as exc:
-            return SlamResult(False, f"cannot read video: {exc}")
+            return SlamResult(False, f"cannot read input: {exc}")
         if not info.is_valid:
-            return SlamResult(False, "video has invalid dimensions or frame rate")
+            return SlamResult(False, "input has invalid dimensions or frame rate")
 
         width, max_features, reduced = self._plan_quality(info)
         cfg = self.cfg
@@ -204,8 +215,15 @@ class SlamPipeline:
         expected = 0
         degraded = False
 
-        decoder = VideoDecoder(video_path, target_width=width, max_fps=cfg.max_fps,
-                              max_frames=cfg.budget.max_frames)
+        decoder: VideoDecoder | ImageSequenceDecoder
+        if is_folder:
+            decoder = ImageSequenceDecoder(video_path, target_width=width,
+                                           timestamps_file=timestamps_file,
+                                           max_fps=cfg.max_fps,
+                                           max_frames=cfg.budget.max_frames)
+        else:
+            decoder = VideoDecoder(video_path, target_width=width, max_fps=cfg.max_fps,
+                                   max_frames=cfg.budget.max_frames)
         expected = max(decoder.expected_frames, 1)
 
         try:

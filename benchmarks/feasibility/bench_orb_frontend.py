@@ -1,4 +1,8 @@
-import cv2, numpy as np, time
+import time
+
+import cv2
+import numpy as np
+
 cv2.setNumThreads(0)  # measure single-core, worst case per worker
 
 rng = np.random.default_rng(0)

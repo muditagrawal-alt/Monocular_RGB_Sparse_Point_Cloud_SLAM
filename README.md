@@ -85,6 +85,37 @@ loop closure still runs; given a budget 30% tighter, it engages and brings a
 8.8 s run down to 6.0 s, trading loop closure to hold the deadline. Results
 report `quality_reduced` so a degraded run is never presented as a normal one.
 
+### Real-dataset evaluation
+
+Everything above is synthetic ground truth: exact, but easier than real
+footage. The TUM RGB-D harness is built and tested for real sequences:
+
+```bash
+python benchmarks/tum.py --list
+python benchmarks/tum.py --sequence freiburg1_xyz
+python benchmarks/tum.py --sequence freiburg3_long_office_household
+```
+
+It reads the image sequence directly rather than re-encoding it to video,
+associates estimated poses to ground truth by timestamp, and scores ATE after
+the 7-DoF alignment monocular results require. Where a loop is closed it also
+reports ATE before correction, so the drift figure is measured on the same
+footing as the published benchmark.
+
+The download host (`webshare.cvg.cit.tum.de`) is not reachable from every
+network. When it is not, fetch the sequence manually from the
+[TUM download page](https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download),
+extract it, and pass `--data-dir`.
+
+**Numbers on the real sequences are not in this README yet**, because the
+dataset could not be downloaded in the environment this was built in. What is
+verified is the harness itself: `benchmarks/make_tum_fixture.py` writes a
+synthetic sequence in exact TUM layout (epoch timestamps, ground truth logged
+at double the camera rate) and `tests/integration/test_tum_harness.py` scores
+it end to end, confirming timestamp association, scale recovery and ATE are
+correct. On a looping fixture it reports 0.6567 m before correction against
+0.2427 m after.
+
 ---
 
 ## Running it

@@ -1,4 +1,8 @@
-import cv2, numpy as np, time
+import time
+
+import cv2
+import numpy as np
+
 rng = np.random.default_rng(0)
 
 def make_scene(w=2000,h=1400):

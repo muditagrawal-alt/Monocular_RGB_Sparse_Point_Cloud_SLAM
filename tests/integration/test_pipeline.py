@@ -124,7 +124,7 @@ def test_corrupt_input_fails_cleanly(tmp_path):
 
 def test_missing_file_fails_cleanly():
     result = SlamPipeline(SlamConfig()).run("/nonexistent/path/video.mp4")
-    assert not result.success and "cannot read video" in result.reason
+    assert not result.success and "cannot read input" in result.reason
 
 
 def test_progress_callback_is_invoked(strafe_video):

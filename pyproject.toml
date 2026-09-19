@@ -7,6 +7,10 @@ requires-python = ">=3.11,<3.13"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# benchmarks/feasibility holds the throwaway scripts that produced the measured
+# numbers quoted in the plan and README. They are kept exactly as run, as the
+# record of those measurements, so they are not linted or maintained.
+extend-exclude = ["benchmarks/feasibility"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "NPY"]
