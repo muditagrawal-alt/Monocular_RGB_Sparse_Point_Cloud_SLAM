@@ -89,7 +89,7 @@ class MappingConfig:
     min_parallax_deg: float = 1.0
     max_reproj_error_px: float = 4.0
     min_depth: float = 1e-4
-    max_depth_ratio: float = 50.0
+    max_depth_ratio: float = 20.0
     """Reject points beyond this multiple of the median scene depth."""
     min_observations: int = 2
 

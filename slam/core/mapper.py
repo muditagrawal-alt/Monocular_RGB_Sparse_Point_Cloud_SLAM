@@ -48,7 +48,18 @@ class Mapper:
         if not reference_ids:
             return result
 
-        median_depth = slam_map.median_depth(keyframe.id) or 1.0
+        # Scale reference must come from a keyframe that already has landmarks.
+        # Asking the incoming keyframe is a no-op, because its landmarks are
+        # created below: median_depth then returns its 1.0 fallback and the
+        # ratio silently becomes an absolute depth in slam units, which is
+        # meaningless once the map settles at any other scale.
+        median_depth = 0.0
+        for ref_id in reversed(reference_ids):
+            median_depth = slam_map.median_depth(ref_id)
+            if median_depth > 0:
+                break
+        if median_depth <= 0:
+            median_depth = 1.0
         max_depth = median_depth * self.cfg.max_depth_ratio
 
         # tracks in this keyframe still lacking 3D structure
@@ -162,7 +173,33 @@ class Mapper:
                 err_sum[lm_id] = err_sum.get(lm_id, 0.0) + e
                 err_count[lm_id] = err_count.get(lm_id, 0) + 1
 
+        # Depth sanity, measured against the settled map scale. A landmark
+        # triangulated from near-zero parallax can satisfy its reprojection
+        # error while its depth is essentially unconstrained, so it survives an
+        # error-only cull and lands hundreds of units away. Those points carry
+        # no information and visually shred the cloud, so they go here, where
+        # the map scale is actually known.
+        scale_depths: list[float] = []
+        for kf_id in active:
+            d = slam_map.median_depth(kf_id)
+            if d > 0:
+                scale_depths.append(d)
+        depth_limit = (float(np.median(scale_depths)) * self.cfg.max_depth_ratio
+                       if scale_depths else None)
+
         culled = 0
+        if depth_limit is not None:
+            for kf_id in active:
+                kf = slam_map.keyframes[kf_id]
+                for lm_id in list(kf.landmark_ids.values()):
+                    lm = slam_map.landmarks.get(lm_id)
+                    if lm is None or lm.is_outlier:
+                        continue
+                    z = kf.pose.world_to_camera(lm.position.reshape(1, 3))[0, 2]
+                    if z <= 0 or z > depth_limit:
+                        lm.is_outlier = True
+                        culled += 1
+
         for lm_id, total in err_sum.items():
             lm = slam_map.landmarks.get(lm_id)
             if lm is None or lm.is_outlier:
