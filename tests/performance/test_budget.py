@@ -63,10 +63,12 @@ def test_adaptive_quality_engages_when_budget_is_tight(tmp_path):
     info = probe_video(str(path))
 
     relaxed = SlamConfig()
+    relaxed.budget.enabled = True                 # opt in; off by default
     _, _, reduced_relaxed = SlamPipeline(relaxed)._plan_quality(info)
     assert not reduced_relaxed, "should not reduce quality when comfortably in budget"
 
     tight = SlamConfig()
+    tight.budget.enabled = True
     tight.budget.realtime_factor_target = 0.1     # emulate a much slower CPU
     width, features, reduced = SlamPipeline(tight)._plan_quality(info)
     assert reduced
@@ -83,6 +85,7 @@ def test_adaptive_quality_can_be_disabled(tmp_path):
     from slam.io.video import probe_video
 
     config = SlamConfig()
+    config.budget.enabled = True
     config.budget.realtime_factor_target = 0.1
     config.budget.adaptive_quality = False
     width, features, reduced = SlamPipeline(config)._plan_quality(probe_video(str(path)))
@@ -113,3 +116,14 @@ def test_frontend_cost_per_frame(strafe_sequence):
         tracker.track(f)
     per_frame_ms = (time.perf_counter() - start) / len(frames[5:]) * 1000
     assert per_frame_ms < 20.0, f"front end at {per_frame_ms:.1f} ms/frame"
+
+
+def test_adaptive_guard_is_off_by_default():
+    """The guard must not be on by default.
+
+    It sheds work based on measured throughput, so leaving it on makes the map
+    depend on how loaded the machine is: the same clip measured 0.76 ATE idle
+    and 3.75 when the guard fired under load. Deployments that would rather
+    lose accuracy than miss a deadline opt in explicitly.
+    """
+    assert SlamConfig().budget.enabled is False

@@ -36,6 +36,7 @@ class FeatureTracker:
         self._points: np.ndarray = np.zeros((0, 2), dtype=np.float32)
         self._track_ids: np.ndarray = np.zeros(0, dtype=np.int64)
         self._next_track_id = 0
+        self._frame_counter = 0
         self._lk_params = {
             "winSize": (config.klt_window, config.klt_window),
             "maxLevel": config.klt_levels,
@@ -164,7 +165,9 @@ class FeatureTracker:
         # Forward-backward check: track back and require the round trip to land
         # near the origin. This is the cheapest reliable way to drop the
         # drifting or occluded tracks that would otherwise corrupt the map.
-        if ok.any():
+        self._frame_counter += 1
+        interval = max(1, self.cfg.fb_check_interval)
+        if ok.any() and self._frame_counter % interval == 0:
             back, bstatus, _ = cv2.calcOpticalFlowPyrLK(  # type: ignore[call-overload]
                 gray, self._prev_gray, nxt[ok].reshape(-1, 1, 2), None, **self._lk_params)
             if back is not None:

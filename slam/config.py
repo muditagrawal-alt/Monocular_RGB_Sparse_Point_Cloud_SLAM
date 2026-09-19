@@ -33,6 +33,13 @@ class FrontendConfig:
     klt_iters: int = 30
     klt_eps: float = 0.01
 
+    fb_check_interval: int = 1
+    """Run the forward-backward consistency check every Nth frame. The check
+    runs a second optical-flow pass, so it doubles front-end cost, and the
+    front end is the largest single stage. Bad tracks are also caught
+    downstream by RANSAC in pose estimation, so checking less often trades a
+    little robustness for a lot of time."""
+
     fb_error_threshold: float = 1.0
     """Forward-backward KLT consistency threshold in pixels. Tracks whose
     round trip lands further than this from the origin are dropped."""
@@ -154,6 +161,18 @@ class LoopClosureConfig:
     """Attempt detection from every Nth keyframe. Consecutive keyframes see
     essentially the same place, so querying all of them multiplies cost without
     finding new loops."""
+    time_aware_budget: bool = True
+    """Size the verification budget from the time actually left, rather than
+    degrading the map while it is being built. Loop detection runs after the
+    frame loop, so by then the remaining budget is known exactly. This keeps
+    full detection quality whenever there is time and gives up detection rather
+    than the deadline when there is not, which is the right way round: the map
+    is already built and correct at that point."""
+
+    min_verifications: int = 40
+    """Floor for the scaled budget. Below this, detection is so unlikely to
+    succeed that the time is better not spent at all."""
+
     candidates_per_query: int = 14
     """Candidates verified per query keyframe, for queries that get a turn."""
     max_verifications: int = 200
@@ -221,7 +240,14 @@ class GlobalBAConfig:
 class BudgetConfig:
     """Runtime guard. Requirement 6: <=10 s for a 10 s clip."""
 
-    enabled: bool = True
+    enabled: bool = False
+    """Off by default. The guard sheds work based on measured throughput, which
+    means the map it produces depends on how loaded the machine is: the same
+    clip measured 0.76 ATE on an idle machine and 3.75 when the guard fired
+    under load. Latency should come from the pipeline being fast enough, not
+    from silently degrading the result, so this is now opt-in for deployments
+    that would rather lose accuracy than miss a deadline."""
+
     realtime_factor_target: float = 1.0
     """Wall-clock seconds allowed per second of video."""
     max_frames: int = 1800

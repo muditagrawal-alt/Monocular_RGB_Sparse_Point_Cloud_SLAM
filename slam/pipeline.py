@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import cv2
 import numpy as np
 
 from .camera import Camera, resolve_intrinsics
@@ -158,6 +159,13 @@ class SlamPipeline:
         """
         t_start = time.perf_counter()
         timings = StageTimings()
+
+        # Seed OpenCV's global RNG. Every RANSAC in the pipeline draws from it,
+        # so without this the same clip and the same configuration produce
+        # different maps in different processes: the orbit sequence measured
+        # 0.7576 and 3.755 ATE on separate runs of identical code. Results have
+        # to be reproducible before any of them can be trusted.
+        cv2.setRNGSeed(self.cfg.seed)
 
         def report(stage: str, frac: float, **extra) -> None:
             if progress is not None:
@@ -380,6 +388,22 @@ class SlamPipeline:
         if cfg.loop.enabled and len(slam_map.keyframes) >= 6:
             report("loop_closure", 0.9)
             t0 = time.perf_counter()
+
+            # Scale the verification budget to the time left. Verification is
+            # the dominant cost here and each one is roughly constant, so the
+            # remaining budget converts directly into a number of attempts.
+            if cfg.loop.time_aware_budget and cfg.budget.realtime_factor_target > 0:
+                allowed = (info.duration_s or n_frames / 30.0) * \
+                    cfg.budget.realtime_factor_target
+                remaining = allowed - (time.perf_counter() - t_start)
+                # ~13 ms per verification measured on this stage
+                affordable = int(max(remaining, 0.0) / 0.013)
+                if affordable < cfg.loop.min_verifications:
+                    cfg.loop.max_verifications = 0
+                else:
+                    cfg.loop.max_verifications = min(cfg.loop.max_verifications,
+                                                     affordable)
+
             detector = LoopDetector(camera, cfg.loop)
             stats = detector.detect(slam_map)
             timings.loop_closure += (time.perf_counter() - t0) * 1000
