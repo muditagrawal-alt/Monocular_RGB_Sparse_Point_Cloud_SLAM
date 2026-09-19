@@ -177,6 +177,14 @@ class LoopClosureConfig:
     than the deadline when there is not, which is the right way round: the map
     is already built and correct at that point."""
 
+    verification_cost_s: float = 0.025
+    """Assumed cost of one geometric verification when sizing the time-aware
+    budget. Measured at roughly 13 ms on an Apple Silicon core and 20 ms on a
+    Fargate vCPU, and Fargate task placement varies enough that the same image
+    and configuration measured 6.5 s on one host and 10.0 s on another. The
+    figure here is deliberately pessimistic: underestimating it lets the stage
+    overrun the deadline, while overestimating only costs some detection."""
+
     budget_headroom: float = 0.80
     """Fraction of the remaining time loop detection may consume. Without a
     margin the stage simply expands to fill whatever is left, so savings made
@@ -362,6 +370,8 @@ def config_from_env() -> SlamConfig:
     cfg.loop.enabled = _env_bool("SLAM_LOOP_CLOSURE", cfg.loop.enabled)
     cfg.loop.max_verifications = _env_int("SLAM_LOOP_VERIFICATIONS",
                                           cfg.loop.max_verifications)
+    cfg.loop.verification_cost_s = _env_float("SLAM_VERIFY_COST_S",
+                                              cfg.loop.verification_cost_s)
     cfg.pose_graph.enabled = cfg.loop.enabled
     cfg.budget.enabled = _env_bool("SLAM_ADAPTIVE_BUDGET", cfg.budget.enabled)
     cfg.budget.realtime_factor_target = _env_float("SLAM_RTF_TARGET",

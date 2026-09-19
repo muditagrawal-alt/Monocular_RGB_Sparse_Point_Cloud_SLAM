@@ -396,8 +396,8 @@ class SlamPipeline:
                 allowed = (info.duration_s or n_frames / 30.0) * \
                     cfg.budget.realtime_factor_target
                 remaining = allowed - (time.perf_counter() - t_start)
-                # ~13 ms per verification measured on this stage
-                affordable = int(max(remaining, 0.0) * cfg.loop.budget_headroom / 0.013)
+                affordable = int(max(remaining, 0.0) * cfg.loop.budget_headroom
+                                 / max(cfg.loop.verification_cost_s, 1e-3))
                 if affordable < cfg.loop.min_verifications:
                     cfg.loop.max_verifications = 0
                 else:
