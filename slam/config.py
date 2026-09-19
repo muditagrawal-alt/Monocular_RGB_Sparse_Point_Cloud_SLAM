@@ -55,6 +55,12 @@ class InitConfig:
 
     min_triangulated: int = 50
     max_init_frames: int = 60
+    homography_fallback_after: int = 20
+    """Failed attempts before the planar fallback is allowed. Until then only
+    the essential matrix is tried, because it gives a better map on scenes that
+    are merely near-planar. A scene that still has not initialised after this
+    many attempts is genuinely planar, and refusing it outright would discard
+    valid footage such as drone video over flat ground."""
     """Give up and restart initialisation if it has not succeeded by here."""
 
 

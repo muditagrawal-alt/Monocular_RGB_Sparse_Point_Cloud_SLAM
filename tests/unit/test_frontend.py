@@ -112,8 +112,11 @@ def test_initialises_planar_scene_from_homography(camera, rng):
     """
     pts = np.column_stack([rng.uniform(-3, 3, 300), rng.uniform(-2, 2, 300),
                            np.full(300, 8.0)])
+    # The fallback is opt-in; the pipeline enables it only after the essential
+    # path has repeatedly failed, which is the signature of a planar scene.
     result = Initializer(camera, InitConfig()).try_initialize(
-        *_views(camera, rng, pts, Pose(np.eye(3), np.array([0.8, 0, 0]))))
+        *_views(camera, rng, pts, Pose(np.eye(3), np.array([0.8, 0, 0]))),
+        allow_homography=True)
     assert result.success
     assert result.model == "homography"
     direction = result.pose.t / np.linalg.norm(result.pose.t)
@@ -128,7 +131,7 @@ def test_rejects_planar_scene_without_translation(camera, rng):
     th = 0.06
     R = np.array([[np.cos(th), 0, np.sin(th)], [0, 1, 0], [-np.sin(th), 0, np.cos(th)]])
     result = Initializer(camera, InitConfig()).try_initialize(
-        *_views(camera, rng, pts, Pose(R, np.zeros(3))))
+        *_views(camera, rng, pts, Pose(R, np.zeros(3))), allow_homography=True)
     assert not result.success
     assert "parallax" in result.reason
 
@@ -139,3 +142,18 @@ def test_rejects_too_few_correspondences(camera, rng):
     result = Initializer(camera, InitConfig()).try_initialize(
         *_views(camera, rng, pts, Pose(np.eye(3), np.array([0.8, 0, 0]))))
     assert not result.success and "correspond" in result.reason
+
+
+def test_planar_fallback_is_off_by_default(camera, rng):
+    """Without opting in, a planar pair is deferred rather than initialised.
+
+    This is what stops a merely near-planar scene from initialising early on a
+    marginal pair: an indoor walkthrough lost most of its map that way, falling
+    from 739 landmarks to 88.
+    """
+    pts = np.column_stack([rng.uniform(-3, 3, 300), rng.uniform(-2, 2, 300),
+                           np.full(300, 8.0)])
+    result = Initializer(camera, InitConfig()).try_initialize(
+        *_views(camera, rng, pts, Pose(np.eye(3), np.array([0.8, 0, 0]))))
+    assert not result.success
+    assert "planar" in result.reason or "degenerate" in result.reason

@@ -110,11 +110,22 @@ class Initializer:
         self.camera = camera
         self.cfg = config
 
-    def try_initialize(self, pts_ref: np.ndarray, pts_cur: np.ndarray) -> InitResult:
+    def try_initialize(self, pts_ref: np.ndarray, pts_cur: np.ndarray,
+                       allow_homography: bool = False) -> InitResult:
         """Attempt initialisation from corresponding points in two frames.
 
         `pts_ref` and `pts_cur` must be the same length and index the same
         tracks (which the KLT front end guarantees).
+
+        `allow_homography` enables the planar fallback. It is off by default
+        because the two paths are not equally good: a scene that is only
+        marginally planar reconstructs better from the essential matrix a few
+        frames later than from a homography right now. Enabling this branch
+        unconditionally made an indoor walkthrough initialise early on a
+        marginal pair and cost it most of its map, dropping from 739 landmarks
+        to 88. The caller turns it on only once the essential path has had a
+        fair chance and kept failing, which is the signature of a genuinely
+        planar scene.
         """
         pts_ref = np.asarray(pts_ref, dtype=np.float64).reshape(-1, 2)
         pts_cur = np.asarray(pts_cur, dtype=np.float64).reshape(-1, 2)
@@ -149,6 +160,11 @@ class Initializer:
         # around 0.48 here, which is planar in the geometric sense but has
         # perfectly good translation and reconstructs fine from H.
         if h_ratio > self.cfg.homography_score_ratio:
+            if not allow_homography:
+                return InitResult(
+                    False,
+                    f"degenerate view pair (planar/rotation, H ratio {h_ratio:.2f})",
+                    model="homography")
             if H is None or H.shape != (3, 3):
                 return InitResult(False, "planar scene but no usable homography",
                                   model="homography")

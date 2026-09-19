@@ -448,7 +448,10 @@ class SlamPipeline:
         pb = np.array([result.points[j] for _, j in pairs], dtype=np.float64)
         shared_ids = np.array([int(result.track_ids[j]) for _, j in pairs])
 
-        init = initializer.try_initialize(pa, pb)
+        # Only offer the planar fallback once the essential path has had a fair
+        # run of attempts; see Initializer.try_initialize for why.
+        init = initializer.try_initialize(
+            pa, pb, allow_homography=attempts >= cfg.init.homography_fallback_after)
         attempts += 1
 
         if not init.success:
