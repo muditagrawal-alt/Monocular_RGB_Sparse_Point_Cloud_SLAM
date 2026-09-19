@@ -142,13 +142,17 @@ class Initializer:
             return InitResult(False, "no geometric model fits the correspondences")
         h_ratio = score_h / total
 
-        # A dominant homography means a planar or rotation-only view pair. The
-        # essential matrix cannot be trusted there, so wait for better motion
-        # rather than initialise on an ill-conditioned decomposition.
+        # A dominant homography means the scene is planar, or the motion is
+        # rotation-only. The essential matrix is unreliable for both, so the
+        # homography is decomposed instead. Refusing outright would discard a
+        # whole legitimate class of footage: a drone over flat ground scores
+        # around 0.48 here, which is planar in the geometric sense but has
+        # perfectly good translation and reconstructs fine from H.
         if h_ratio > self.cfg.homography_score_ratio:
-            return InitResult(False,
-                              f"degenerate view pair (planar/rotation, H ratio {h_ratio:.2f})",
-                              model="homography")
+            if H is None or H.shape != (3, 3):
+                return InitResult(False, "planar scene but no usable homography",
+                                  model="homography")
+            return self._initialize_from_homography(H, pts_ref, pts_cur, h_ratio)
 
         # --- recover pose from the essential matrix ---
         E, e_mask = cv2.findEssentialMat(pts_ref, pts_cur, self.camera.K, cv2.RANSAC,
@@ -209,5 +213,83 @@ class Initializer:
         return InitResult(
             success=True, reason="ok", pose=pose_cur_scaled, points_world=pts3d_scaled,
             inlier_mask=full_mask, model="essential",
+            median_parallax_deg=median_parallax, n_triangulated=int(good.sum()),
+            scale_normalisation=inv)
+
+    def _initialize_from_homography(self, H: np.ndarray, pts_ref: np.ndarray,
+                                    pts_cur: np.ndarray, h_ratio: float) -> InitResult:
+        """Initialise from a planar scene by decomposing the homography.
+
+        `decomposeHomographyMat` returns up to four (R, t, n) candidates. Only
+        one is physically real, and it is selected the same way `recoverPose`
+        selects among essential-matrix solutions: by cheirality, that is, by
+        which candidate puts the most triangulated points in front of both
+        cameras with an acceptable reprojection error.
+
+        Pure rotation is still rejected, because it is caught downstream by the
+        parallax gate rather than here: a rotation-only pair also produces a
+        dominant homography, but yields no usable depth.
+        """
+        thr = self.cfg.ransac_threshold_px
+        n_sols, rotations, translations, normals = cv2.decomposeHomographyMat(
+            H, self.camera.K)
+        if n_sols == 0:
+            return InitResult(False, "homography decomposition produced no solutions",
+                              model="homography")
+
+        pose_ref = Pose()
+        best: tuple[int, Pose, np.ndarray, np.ndarray] | None = None
+
+        for i in range(n_sols):
+            R_cw = np.asarray(rotations[i], dtype=np.float64)
+            t_cw = np.asarray(translations[i], dtype=np.float64).reshape(3)
+            if not np.isfinite(R_cw).all() or not np.isfinite(t_cw).all():
+                continue
+            if np.linalg.norm(t_cw) < 1e-9:
+                continue                      # pure rotation: no baseline
+            pose_cur = Pose.from_world_to_camera(R_cw, t_cw)
+
+            pts3d = triangulate(self.camera, pose_ref, pose_cur, pts_ref, pts_cur)
+            good = filter_triangulated(
+                self.camera, pose_ref, pose_cur, pts_ref, pts_cur, pts3d,
+                min_parallax_deg=0.0,          # parallax is gated after selection
+                max_reproj_error_px=thr * 4.0, min_depth=1e-4)
+            n_good = int(good.sum())
+            if best is None or n_good > best[0]:
+                best = (n_good, pose_cur, pts3d, good)
+
+        if best is None or best[0] < self.cfg.min_triangulated:
+            found = 0 if best is None else best[0]
+            return InitResult(False,
+                              f"planar scene, best homography solution kept only {found} points",
+                              model="homography")
+
+        _, pose_cur, pts3d, good = best
+        pts3d_good = pts3d[good]
+
+        # The parallax gate applies exactly as it does for the essential path.
+        # This is what still rejects rotation-only motion, which also looks like
+        # a homography but carries no depth information.
+        parallax = parallax_angles_deg(pose_ref, pose_cur, pts3d_good)
+        median_parallax = float(np.median(parallax)) if len(parallax) else 0.0
+        if median_parallax < self.cfg.min_parallax_deg:
+            return InitResult(False,
+                              f"planar scene with insufficient parallax "
+                              f"({median_parallax:.2f} deg), likely rotation only",
+                              model="homography", median_parallax_deg=median_parallax)
+
+        depths = pose_ref.world_to_camera(pts3d_good)[:, 2]
+        depths = depths[depths > 0]
+        med_depth = float(np.median(depths)) if len(depths) else 1.0
+        if not np.isfinite(med_depth) or med_depth <= 1e-9:
+            return InitResult(False, "degenerate scene depth", model="homography")
+
+        inv = 1.0 / med_depth
+        full_mask = np.zeros(len(pts_ref), dtype=bool)
+        full_mask[np.flatnonzero(good)] = True
+
+        return InitResult(
+            success=True, reason="ok", pose=Pose(pose_cur.R, pose_cur.t * inv),
+            points_world=pts3d_good * inv, inlier_mask=full_mask, model="homography",
             median_parallax_deg=median_parallax, n_triangulated=int(good.sum()),
             scale_normalisation=inv)

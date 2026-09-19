@@ -30,3 +30,5 @@ web/dist/
 !.env.example
 web/node_modules/
 .playwright-cli/
+benchmarks/datasets/wild/
+samples/
