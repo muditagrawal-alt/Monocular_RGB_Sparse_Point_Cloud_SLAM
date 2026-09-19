@@ -360,6 +360,8 @@ def config_from_env() -> SlamConfig:
                                                   cfg.local_ba.run_every_n_keyframes)
     cfg.local_ba.window_size = _env_int("SLAM_BA_WINDOW", cfg.local_ba.window_size)
     cfg.loop.enabled = _env_bool("SLAM_LOOP_CLOSURE", cfg.loop.enabled)
+    cfg.loop.max_verifications = _env_int("SLAM_LOOP_VERIFICATIONS",
+                                          cfg.loop.max_verifications)
     cfg.pose_graph.enabled = cfg.loop.enabled
     cfg.budget.enabled = _env_bool("SLAM_ADAPTIVE_BUDGET", cfg.budget.enabled)
     cfg.budget.realtime_factor_target = _env_float("SLAM_RTF_TARGET",
