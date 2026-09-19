@@ -113,10 +113,17 @@ class LocalBAConfig:
     """Sliding-window bundle adjustment."""
 
     enabled: bool = True
-    window_size: int = 8
-    """Keyframes optimised jointly. Older keyframes act as a fixed gauge."""
+    window_size: int = 6
+    """Keyframes optimised jointly. Older keyframes act as a fixed gauge.
+    Measured better than 8 as well as cheaper: a shorter window keeps the
+    solve close to well-constrained recent structure instead of dragging in
+    older keyframes whose landmarks are thinly observed."""
+
     fixed_count: int = 2
-    max_iterations: int = 8
+
+    max_iterations: int = 5
+    """Levenberg-Marquardt iterations. The solve converges well before 8, so
+    the extra iterations cost time without improving the result."""
     huber_k: float = 1.345
     pixel_sigma: float = 1.5
     run_every_n_keyframes: int = 2
