@@ -41,6 +41,10 @@ QUERIES = [
     "hiking trail", "bicycle ride", "castle interior", "cathedral interior", "garden walk",
     "train window view", "corridor walk", "aerial city", "park walk", "forest path",
     "old town walk", "campus tour", "harbour walk", "market walk",
+    # second pass: different scene types, to avoid re-testing the same footage
+    "library interior", "staircase walk", "tunnel walk", "boat ride canal",
+    "escalator ride", "palace interior", "ruins walk", "bridge crossing",
+    "snow walk", "beach walk", "warehouse interior", "greenhouse walk",
 ]
 
 
@@ -136,6 +140,11 @@ def collect(limit: int, cache: Path, max_mb: int = 250) -> list[tuple[str, str]]
             if out.exists() and out.stat().st_size > 50_000:
                 saved.append((out.name, query))
                 print(f"  [{len(saved):2d}] {out.name[:58]}")
+            else:
+                # A truncated download leaves a tiny unplayable stub behind. The
+                # runner globs this directory, so leaving it on disk turns a
+                # failed download into what looks like a pipeline failure.
+                out.unlink(missing_ok=True)
         except Exception as exc:
             print(f"  skipped {title[5:40]}: {str(exc)[:60]}")
             continue
