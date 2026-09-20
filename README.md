@@ -286,7 +286,8 @@ The AWS-provided hostname lives on the load balancer's listener rule, and
 %%{init: {'theme':'base','themeVariables':{
 'primaryColor':'#1f1f1f','primaryTextColor':'#ededed','primaryBorderColor':'#4a4a4a',
 'lineColor':'#8a8a8a','secondaryColor':'#262626','tertiaryColor':'#191919',
-'clusterBkg':'#161616','clusterBorder':'#3a3a3a','fontSize':'14px'}}}%%
+'clusterBkg':'#161616','clusterBorder':'#3a3a3a',
+'edgeLabelBackground':'#161616','fontSize':'14px'}}}%%
 flowchart TD
     vid["Video or image folder"] --> dec["Decode and downscale<br/>threaded producer"]
     dec --> intr["Resolve intrinsics<br/>metadata, else 60° FOV"]
@@ -342,7 +343,8 @@ flowchart TD
 %%{init: {'theme':'base','themeVariables':{
 'primaryColor':'#1f1f1f','primaryTextColor':'#ededed','primaryBorderColor':'#4a4a4a',
 'lineColor':'#8a8a8a','secondaryColor':'#262626','tertiaryColor':'#191919',
-'clusterBkg':'#161616','clusterBorder':'#3a3a3a','fontSize':'14px'}}}%%
+'clusterBkg':'#161616','clusterBorder':'#3a3a3a',
+'edgeLabelBackground':'#161616','fontSize':'14px'}}}%%
 flowchart TD
     spa["React SPA<br/>three.js point-cloud viewer"]
 
