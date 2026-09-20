@@ -295,9 +295,9 @@ flowchart TD
     intr --> fe
 
     subgraph fe["Front end · every frame"]
-        seed["Shi-Tomasi corners<br/>seeded per grid cell"]
-        klt["Pyramidal KLT optical flow"]
-        fb["Forward-backward check<br/>drop drifting tracks"]
+        seed["Shi-Tomasi corners<br/>seeded per grid cell,<br/>replenished as tracks die"]
+        klt["Pyramidal Lucas-Kanade optical flow<br/>3 levels, 21 px window"]
+        fb["Forward-backward check<br/>drops tracks that no longer<br/>land where they started"]
         seed --> klt --> fb
     end
 
@@ -318,10 +318,10 @@ flowchart TD
 
     par -->|"normalise depth to 1.0"| map[("Map<br/>keyframes + landmarks")]
 
-    init -->|"yes"| track["solvePnPRansac against the map<br/>constant-velocity prior"]
+    init -->|"yes"| track["Pose by solvePnPRansac<br/>against the map<br/>constant-velocity prior"]
     track --> kf{"Insert<br/>keyframe?"}
-    kf -->|"no"| fe
-    kf -->|"yes"| tri["Triangulate new landmarks<br/>parallax, depth and reprojection gates"]
+    kf -->|"no · next frame"| fe
+    kf -->|"yes"| tri["Triangulate new landmarks<br/>parallax, depth and<br/>reprojection gates"]
     tri --> cull["Cull outliers"]
     cull --> map
 
