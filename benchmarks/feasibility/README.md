@@ -4,7 +4,7 @@ Scripts that produced the measured numbers quoted in `IMPLEMENTATION_PLAN.md`.
 They were run *before* the architecture was chosen, to validate the two riskiest
 assumptions in the plan.
 
-Run with the pinned stack (Python 3.11 — **not** the host `python3`, which is 3.14):
+Run with the pinned stack (Python 3.11, **not** the host `python3`, which is 3.14):
 
 ```bash
 /opt/homebrew/bin/python3.11 -m venv .venv
@@ -15,11 +15,11 @@ Run with the pinned stack (Python 3.11 — **not** the host `python3`, which is 
 
 ## What they established
 
-**`bench_orb_frontend.py`** — per-frame cost of an ORB detect+describe+BFMatch+RANSAC front end.
+**`bench_orb_frontend.py`**: per-frame cost of an ORB detect+describe+BFMatch+RANSAC front end.
 Result at 640x360/1000 features, single core: **27.5 ms/frame**. The BFMatcher dominates and
 scales badly with feature count (9.5 ms at 1000 features -> 36.7 ms at 2000).
 
-**`bench_klt_frontend.py`** — per-frame cost of a Shi-Tomasi + pyramidal KLT front end.
+**`bench_klt_frontend.py`**: per-frame cost of a Shi-Tomasi + pyramidal KLT front end.
 Result at 640x360/800 points, single core: **4.3 ms/frame**, ~580 points tracked.
 ORB detect+describe alone (paid only at keyframes) is 11.1 ms.
 
@@ -31,4 +31,4 @@ The GTSAM pose-graph drift experiment (4.757 m -> 0.539 m ATE, 8.8x reduction, 2
 in Phase 2 rather than kept as a throwaway script.
 
 Note: measured on Apple Silicon (arm64). AWS x86_64 Fargate figures are to be re-measured in
-Phase 3 — see the plan's performance section for the headroom levers held in reserve.
+Phase 3, see the plan's performance section for the headroom levers held in reserve.

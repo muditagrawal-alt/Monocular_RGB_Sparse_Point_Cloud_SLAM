@@ -1,4 +1,4 @@
-# Runtime — pinned and verified together on Python 3.11 (pip check clean).
+# Runtime: pinned and verified together on Python 3.11 (pip check clean).
 # NOTE: gtsam 4.2.2 requires numpy<2, which forces opencv<=4.11.x.
 # Do not bump opencv past 4.11.0.86 without also moving off gtsam 4.2.2.
 numpy==1.26.4

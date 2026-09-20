@@ -42,8 +42,8 @@ No depth sensor. No GPS. No neural network. No GPU.
 You give it an ordinary video from an ordinary camera. It works out two things
 at once, from nothing but the flat 2D frames:
 
-- **Where the camera went** — its full path through 3D space
-- **What the scene looks like in 3D** — a sparse cloud of triangulated points
+- **Where the camera went**: its full path through 3D space
+- **What the scene looks like in 3D**: a sparse cloud of triangulated points
 
 That is circular by nature: knowing where the camera is requires knowing where
 the scene is, and vice versa. Solving both together is what SLAM means.
@@ -67,13 +67,13 @@ The requirement: a 10-second video must process in **10 seconds or less**.
 | | Deployed result |
 |---|---|
 | Input | 300 frames, 640×360, 30 fps, **10.0 s** |
-| **Processing time** | **5.77 – 5.92 s** |
+| **Processing time** | **5.77 to 5.92 s** |
 | **Realtime factor** | **0.58×** |
 | Consistency | 5 consecutive runs, all within budget |
 
 </div>
 
-**Test environment** — AWS ECS Express Mode on Fargate, `linux/amd64`,
+**Test environment**: AWS ECS Express Mode on Fargate, `linux/amd64`,
 **8 vCPU / 16 GB**, `us-east-1`. Python 3.11, OpenCV 4.11 headless, GTSAM 4.2.2.
 Deployed settings: 448 px processing width, 560 features, loop-verification cap
 100. **No GPU is present or used.**
@@ -126,7 +126,7 @@ Absolute trajectory error against exact synthetic ground truth, after the 7-DoF
 Sim(3) alignment monocular evaluation requires. **Five seeds per configuration.**
 
 <table>
-<tr><th>Orbit, 300 frames — camera returns to its start</th><th>Strafe, 240 frames — never revisits</th></tr>
+<tr><th>Orbit, 300 frames, camera returns to its start</th><th>Strafe, 240 frames, never revisits</th></tr>
 <tr><td>
 
 | Configuration | ATE |
@@ -150,13 +150,14 @@ Sim(3) alignment monocular evaluation requires. **Five seeds per configuration.*
 
 Read together: bundle adjustment does most of the work on any sequence, and
 loop closure adds more **only where the camera genuinely returns somewhere**.
-On the non-looping clip it correctly finds nothing and changes nothing — the
-right behaviour from a component whose failure mode is warping the whole map.
+On the non-looping clip it correctly finds nothing and changes nothing, which is
+exactly what you want from a component whose failure mode is warping the whole
+map.
 
 ### Real footage
 
-**45 arbitrary clips** from Wikimedia Commons — walking tours, cathedral
-interiors, cycling, drone flights, driving, hiking, tunnels, palaces:
+**45 arbitrary clips** from Wikimedia Commons: walking tours, cathedral
+interiors, cycling, drone flights, driving, hiking, tunnels and palaces.
 
 <div align="center">
 
@@ -242,7 +243,7 @@ balancer, TLS and a public HTTPS hostname from a container image.
 > successor.
 
 <details>
-<summary><b>Runtime tuning</b> — the right values depend on how fast the host is</summary>
+<summary><b>Runtime tuning</b> (the right values depend on how fast the host is)</summary>
 
 <br>
 
@@ -312,7 +313,7 @@ video ─► decode & downscale ─► intrinsics resolution
 
 ### 1. Classical geometry, not a learned model
 
-The 2025-26 headline monocular systems — MASt3R-SLAM, VGGT-SLAM, SLAM3R — are
+The 2025-26 headline monocular systems, MASt3R-SLAM, VGGT-SLAM, SLAM3R, are
 dense, transformer-based, and need a CUDA GPU to run at real time. Wrong tool
 here for three independent reasons: the assignment asks for a **sparse** cloud,
 a GPU task costs far more and complicates deployment, and the 10-second budget
@@ -357,8 +358,8 @@ consistency requirement that strong geometric support can override.
 ### 4. Latency is handled where it does no harm
 
 An earlier design degraded the map mid-stream when it projected an overrun.
-That made accuracy depend on machine load — the same clip scored **0.76 ATE on
-an idle machine and 3.75 when the guard fired under contention**. It is now
+That made accuracy depend on machine load. The same clip scored **0.76 ATE on
+an idle machine and 3.75 when the guard fired under contention**, so it is now
 **off by default**.
 
 Instead, loop detection sizes its own budget from the time actually remaining.
@@ -372,8 +373,8 @@ SLAM is CPU-bound for seconds at a time, so it runs in a separate **process**,
 not a thread: a thread would contend on the GIL with the event loop and make
 progress polling unresponsive. Progress is reported by atomically replacing a
 small JSON file rather than over a multiprocessing queue, because a `Manager`
-queue needs a broker process that re-imports `__main__` — fragile under the
-`spawn` start method used on macOS and in containers.
+queue needs a broker process that re-imports `__main__`, which is fragile under
+the `spawn` start method used on macOS and in containers.
 
 ---
 
@@ -432,13 +433,13 @@ Demo music: *"Placid Ambient"* by MusicLFiles, CC BY 4.0.
 | **Scale is unobservable** | One moving camera cannot recover absolute size; a real room and a perfect dollhouse produce identical images | Show one object of known size, or add stereo / depth / IMU / GPS |
 | **No calibration on an upload** | Focal length comes from metadata when present, else a 60° FOV assumption with a UI override | Estimate focal length as a free variable in a final global bundle adjustment |
 | **Degenerate motion is refused** | Pure rotation gives no baseline, so no depth information exists | Not possible. This is geometry, not implementation |
-| **The world is assumed static** | Crowds and traffic violate the rigid-scene assumption | Mask moving regions with segmentation — reintroduces a GPU dependency |
+| **The world is assumed static** | Crowds and traffic violate the rigid-scene assumption | Mask moving regions with segmentation, reintroduces a GPU dependency |
 
 ### What I would fix first
 
 - **Loop closure is under-sensitive.** Fires on roughly 1 in 5 synthetic
-  sequences and 8 of 42 real clips. The bias is deliberate — a false loop warps
-  the entire map — but retrieval is the weak link. *Fix:* a proper DBoW2-style
+  sequences and 8 of 42 real clips. The bias is deliberate, since a false loop
+  warps the entire map, but retrieval is the weak link. *Fix:* a proper DBoW2-style
   vocabulary tree trained offline instead of online k-means.
 - **Tracking robustness on real footage.** Only 20 of 42 real clips track with
   no loss at all. Losses trigger re-initialisation, so the trajectory becomes
@@ -449,7 +450,7 @@ Demo music: *"Placid Ambient"* by MusicLFiles, CC BY 4.0.
   dataset host was unreachable from the development network, so no
   real-benchmark ATE numbers exist. *Fix:* run `benchmarks/tum.py` from a
   network that can reach it.
-- **Sparse means sparse.** About 1 point per 400 pixels — enough to localise,
+- **Sparse means sparse.** About 1 point per 400 pixels: enough to localise,
   not enough to look like a scene. *Fix:* a densification pass once poses are
   known, as an optional high-quality mode.
 - **Forward motion is weak geometry.** Moving along the optical axis gives
@@ -475,7 +476,7 @@ The method was to treat the assistant as a fast implementer and a tireless
 measurer, and to keep engineering judgement, direction and acceptance criteria
 on my side:
 
-- **I set the constraints and the order of work** — build and verify locally
+- **I set the constraints and the order of work**: build and verify locally
   before touching any cloud; deployment as a gated step rather than something
   interleaved; benchmark against real footage, not only synthetic fixtures;
   polish last, after the substance was proven.
@@ -492,26 +493,26 @@ on my side:
 | Classical geometry over a learned dense model | The assignment asks for a *sparse* cloud, and a CPU pipeline hits the 10 s budget where MASt3R-SLAM or VGGT-SLAM would need a GPU |
 | KLT optical flow every frame, descriptors only at keyframes | 4.3 ms/frame against 27.5 ms for ORB matching. This one decision is why the budget is met at all |
 | GTSAM for bundle adjustment and pose graph | pip-installable with the right wheels, and never became a bottleneck |
-| Layered drift control (L1–L4) | The ablation shows each layer earning its place: 4.78× on a looping sequence, 13.45× on a straight one |
+| Layered drift control (L1-L4) | The ablation shows each layer earning its place: 4.78× on a looping sequence, 13.45× on a straight one |
 | Homography initialisation as a *gated fallback* | Recovered drone and other planar footage that was previously refused outright |
 
 ### Recommendations rejected or modified
 
 The more informative half. Each was rejected on evidence, not taste:
 
-| Proposed | Outcome |
+| What was proposed | What happened to it |
 |---|---|
-| **Adaptive mid-flight quality degradation** to protect the deadline | **Rejected, disabled by default.** It made accuracy depend on machine load: 0.76 ATE idle versus 3.75 when it fired under contention. Latency is now handled by sizing loop detection from the time remaining *after* the map is built |
-| **Capping bundle-adjustment landmarks at 250** | **Rejected.** Degraded the orbit sequence to 4.9054 ATE — far worse than the time it saved |
-| **Halving the forward-backward track check** for 25% off the front end | **Rejected.** Looked free on one seed; cost 17% accuracy across five. Single measurements are not results |
-| **Bundle adjustment every third keyframe** for the deployed build | **Rejected.** 88% worse on the orbit sequence. A shorter BA window was found instead — faster *and* more accurate |
+| **Adaptive mid-flight quality degradation** to protect the deadline | **Rejected, disabled by default.** It made accuracy depend on machine load: 0.76 ATE on an idle machine against 3.75 when it fired under contention. Latency is now handled by sizing loop detection from the time remaining *after* the map is built |
+| **Capping bundle-adjustment landmarks at 250** | **Rejected.** Degraded the orbit sequence to 4.9054 ATE, far worse than the time it saved |
+| **Halving the forward-backward track check** for 25% off the front end | **Rejected.** Looked free on one seed, then cost 17% accuracy across five. A reminder that one measurement is not a result |
+| **Bundle adjustment every third keyframe** for the deployed build | **Rejected.** 88% worse on the orbit sequence. A shorter BA window was found instead, faster *and* more accurate |
 | An early ablation reporting **"5.10× drift improvement"** | **Rejected as unreproducible.** Re-running the exact commit gave a different figure. Cause: unseeded RANSAC plus the adaptive guard reacting to load. Both fixed; every number here was re-measured from scratch afterwards |
 
 > Insisting that results reproduce before accepting them is what exposed the
 > reproducibility defect. Until it was fixed, the headline accuracy figures were
 > not trustworthy, and no amount of further implementation would have made them
-> so. Four separate processes now produce identical output — the precondition
-> for any measurement in this repository meaning anything.
+> so. Four separate processes now produce identical output, which is the
+> precondition for any measurement here meaning anything.
 
 ---
 
