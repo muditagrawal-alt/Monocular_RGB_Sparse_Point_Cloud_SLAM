@@ -282,34 +282,86 @@ The AWS-provided hostname lives on the load balancer's listener rule, and
 
 ## 🏗 Architecture and major technical decisions
 
+```mermaid
+flowchart TD
+    vid["Video or image folder"] --> dec["Decode and downscale<br/>threaded producer"]
+    dec --> intr["Resolve intrinsics<br/>metadata, else 60° FOV"]
+
+    intr --> fe
+
+    subgraph fe["Front end · every frame"]
+        seed["Shi-Tomasi corners<br/>seeded per grid cell"]
+        klt["Pyramidal KLT optical flow"]
+        fb["Forward-backward check<br/>drop drifting tracks"]
+        seed --> klt --> fb
+    end
+
+    fb --> init{"Map<br/>initialised?"}
+
+    init -->|"no"| two
+
+    subgraph two["Two-view initialisation"]
+        score["Score homography<br/>against essential matrix"]
+        ess["Essential matrix<br/>general scene"]
+        hom["Homography<br/>planar fallback"]
+        par["Parallax gate<br/>refuse pure rotation"]
+        score -->|"general"| ess
+        score -->|"planar, after retries"| hom
+        ess --> par
+        hom --> par
+    end
+
+    par -->|"normalise depth to 1.0"| map[("Map<br/>keyframes + landmarks")]
+
+    init -->|"yes"| track["solvePnPRansac against the map<br/>constant-velocity prior"]
+    track --> kf{"Insert<br/>keyframe?"}
+    kf -->|"no"| fe
+    kf -->|"yes"| tri["Triangulate new landmarks<br/>parallax, depth and reprojection gates"]
+    tri --> cull["Cull outliers"]
+    cull --> map
+
+    map --> back
+
+    subgraph back["Back end · drift control"]
+        ba["L3 · sliding-window<br/>bundle adjustment<br/>GTSAM, Huber kernel"]
+        loop["L4 · loop detection<br/>bag of words + TF-IDF,<br/>then RANSAC PnP"]
+        pgo["L4 · pose-graph optimisation<br/>robust loop constraints"]
+        ba --> loop --> pgo
+    end
+
+    back --> out["Trajectory (TUM, JSON)<br/>Point cloud (PLY, packed binary)<br/>Telemetry"]
 ```
-video ─► decode & downscale ─► intrinsics resolution
-           │
-           ▼
-   FRONT END (every frame)
-   Shi-Tomasi corners seeded per grid cell ──► pyramidal KLT optical flow
-   forward-backward consistency check, re-seed as tracks expire
-           │
-           ▼
-   TWO-VIEW INITIALISATION
-   homography vs essential model selection, parallax gate,
-   scene depth normalised to 1.0
-           │
-           ▼
-   TRACKING (every frame)
-   solvePnPRansac against the existing map, constant-velocity prior
-           │
-           ▼
-   keyframe decision ─► triangulate new landmarks ─► cull outliers
-           │
-           ▼
-   BACK END
-   sliding-window bundle adjustment   (GTSAM, Huber robust kernel)
-   loop detection                     (bag of words + geometry + consistency)
-   global pose-graph optimisation     (GTSAM, robust loop constraints)
-           │
-           ▼
-   trajectory (TUM + JSON) │ point cloud (PLY + packed binary) │ telemetry
+
+### Deployment shape
+
+```mermaid
+flowchart TD
+    subgraph browser["Browser"]
+        spa["React SPA<br/>three.js point-cloud viewer"]
+    end
+
+    spa -->|"HTTPS · multipart upload"| alb
+
+    subgraph aws["AWS ECS Express Mode · Fargate 4 vCPU / 8 GB · us-east-1"]
+        alb["Application Load Balancer<br/>TLS · /healthz · autoscaling"]
+        static["Static bundle<br/>same origin, so no CORS"]
+        api["FastAPI<br/>upload validation · job registry"]
+        worker["SLAM worker<br/>separate OS process"]
+
+        alb --> static
+        alb --> api
+        api -->|"submit to process pool"| worker
+        worker -.->|"progress, by atomically<br/>replacing a JSON file"| api
+    end
+
+    worker --> core
+
+    subgraph core["SLAM core · Python, OpenCV, GTSAM · no GPU"]
+        pipe["pipeline.run()"]
+    end
+
+    core -->|"trajectory · point cloud · telemetry"| api
+    api -->|"client polls for the result"| spa
 ```
 
 ### 1. Classical geometry, not a learned model
