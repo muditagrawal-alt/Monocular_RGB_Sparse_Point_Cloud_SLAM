@@ -35,6 +35,7 @@ reconstruction and the telemetry that backs the timing claim).
 - [Architecture and major technical decisions](#architecture-and-major-technical-decisions)
 - [Libraries, frameworks and external components](#libraries-frameworks-and-external-components)
 - [Known limitations and what I would improve with more time](#known-limitations-and-what-i-would-improve-with-more-time)
+- [AI usage](#ai-usage)
 - [Repository layout](#repository-layout)
 
 ---
@@ -433,6 +434,68 @@ load. Both are fixed and results are now deterministic, but the numbers above
 were re-measured from scratch afterwards rather than carried over. Single
 measurements were treated as facts earlier in development; they should not have
 been.
+
+---
+
+## AI Usage
+
+### Tools
+
+**Claude Code** (Anthropic) was used throughout as a development assistant, for
+implementation, benchmark tooling, and documentation. Everything it produced
+was checked against measurement before being kept.
+
+### How it was used
+
+The working method was to treat the assistant as a fast implementer and a
+tireless measurer, and to keep the engineering judgement, direction and
+acceptance criteria on my side:
+
+- **I set the constraints and the order of work.** Build and verify locally
+  before touching any cloud; deployment as a gated step rather than something
+  interleaved; benchmark against real footage rather than only synthetic
+  fixtures; video and polish last, after the substance was proven.
+- **I required claims to be reproducible before I accepted them.** This is what
+  turned up the single most important defect in the project, described below.
+- **I chose the deployment target** after seeing the CPU evidence, and directed
+  the latency work when the deployed service missed the 10 second budget.
+- The assistant did the implementation, ran the sweeps, and wrote the first
+  draft of the documentation.
+
+### Recommendations adopted, after they survived measurement
+
+| Decision | Why it was kept |
+|---|---|
+| Classical geometry over a learned dense model | Benchmarked before committing: the assignment asks for a *sparse* cloud, and a CPU pipeline hits the 10 s budget where MASt3R-SLAM or VGGT-SLAM would need a GPU |
+| KLT optical flow every frame, descriptors only at keyframes | Measured 4.3 ms/frame against 27.5 ms for ORB matching. This one decision is why the budget is met at all |
+| GTSAM for bundle adjustment and pose graph | pip-installable with the right wheels, and never became a bottleneck |
+| Layered drift control (L1 to L4) | The ablation shows each layer earning its place: 4.78x on a looping sequence, 13.45x on a straight one |
+| Homography initialisation as a *gated fallback* | Recovered drone and other planar footage that was previously refused outright |
+
+### Recommendations rejected or modified
+
+These are the more informative half, and each was rejected on evidence rather
+than taste:
+
+| Proposed | Outcome |
+|---|---|
+| **Adaptive mid-flight quality degradation** to protect the deadline | **Rejected and disabled by default.** It made accuracy depend on machine load: the same clip scored 0.76 ATE on an idle machine and 3.75 when the guard fired under contention. Latency is now handled by sizing loop detection from the time remaining *after* the map is built, where shedding work costs detection rather than map quality |
+| **Capping bundle-adjustment landmarks at 250** to save time | **Rejected.** Degraded the orbit sequence to 4.9054 ATE, far worse than the time it saved was worth |
+| **Halving the forward-backward track check** for a 25% front-end saving | **Rejected.** It looked free on one seed; across five it cost 17% accuracy. A reminder that single measurements are not results |
+| **Bundle adjustment every third keyframe** for the deployed build | **Rejected.** 88% worse on the orbit sequence. A shorter BA window was found instead, which is both faster *and* more accurate |
+| An early ablation reporting **"5.10x drift improvement"** | **Rejected as unreproducible.** Re-running the exact commit produced a different figure. The cause was an unseeded RANSAC plus the adaptive guard reacting to load. Both are fixed, and every number in this README was re-measured from scratch afterwards rather than carried over |
+
+### The most valuable thing that came out of this
+
+Insisting that results reproduce before accepting them is what exposed the
+reproducibility defect above. Until it was fixed, the project's headline
+accuracy figures were not trustworthy, and no amount of further implementation
+would have made them so. Four separate processes now produce identical output,
+which is the precondition for any measurement in this repository meaning
+anything.
+
+The rejected recommendations above are, to my mind, the honest measure of how
+the tooling was used: as something to be verified rather than deferred to.
 
 ---
 
