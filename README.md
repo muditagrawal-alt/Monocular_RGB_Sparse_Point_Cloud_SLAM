@@ -7,7 +7,22 @@ place.
 **Live: https://mo-1693468beaff4294af01115326a65b4f.ecs.us-east-1.on.aws**
 
 Upload a video, watch the pipeline run, and inspect the reconstruction in 3D.
-O-Hive take-home, Assignment 2.
+O-Hive take-home, Assignment 2, by Mudit Agrawal.
+
+![Reconstruction](docs/media/reconstruction.gif)
+
+*A 10 second clip, reconstructed in 5.9 seconds on CPU. The ring is the
+recovered camera path with a frustum at every keyframe; the cloud inside it is
+the 3,853 landmarks triangulated along the way.*
+
+### Demo
+
+[**Watch the 50 second walkthrough**](docs/media/demo.mp4) (upload, tracking,
+reconstruction and the telemetry that backs the timing claim).
+
+| Upload to finished map | |
+|---|---|
+| ![Pipeline](docs/media/pipeline.gif) | Corners are tracked with optical flow, each pose is solved against the map so far, and bundle adjustment refines poses and structure together. No neural network is involved at any point. |
 
 ---
 
