@@ -283,6 +283,10 @@ The AWS-provided hostname lives on the load balancer's listener rule, and
 ## 🏗 Architecture and major technical decisions
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+'primaryColor':'#1f1f1f','primaryTextColor':'#ededed','primaryBorderColor':'#4a4a4a',
+'lineColor':'#8a8a8a','secondaryColor':'#262626','tertiaryColor':'#191919',
+'clusterBkg':'#161616','clusterBorder':'#3a3a3a','fontSize':'14px'}}}%%
 flowchart TD
     vid["Video or image folder"] --> dec["Decode and downscale<br/>threaded producer"]
     dec --> intr["Resolve intrinsics<br/>metadata, else 60° FOV"]
@@ -335,33 +339,29 @@ flowchart TD
 ### Deployment shape
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{
+'primaryColor':'#1f1f1f','primaryTextColor':'#ededed','primaryBorderColor':'#4a4a4a',
+'lineColor':'#8a8a8a','secondaryColor':'#262626','tertiaryColor':'#191919',
+'clusterBkg':'#161616','clusterBorder':'#3a3a3a','fontSize':'14px'}}}%%
 flowchart TD
-    subgraph browser["Browser"]
-        spa["React SPA<br/>three.js point-cloud viewer"]
-    end
+    spa["React SPA<br/>three.js point-cloud viewer"]
 
     spa -->|"HTTPS · multipart upload"| alb
 
     subgraph aws["AWS ECS Express Mode · Fargate 4 vCPU / 8 GB · us-east-1"]
+        direction TB
         alb["Application Load Balancer<br/>TLS · /healthz · autoscaling"]
-        static["Static bundle<br/>same origin, so no CORS"]
         api["FastAPI<br/>upload validation · job registry"]
         worker["SLAM worker<br/>separate OS process"]
 
-        alb --> static
         alb --> api
         api -->|"submit to process pool"| worker
-        worker -.->|"progress, by atomically<br/>replacing a JSON file"| api
     end
 
-    worker --> core
-
-    subgraph core["SLAM core · Python, OpenCV, GTSAM · no GPU"]
-        pipe["pipeline.run()"]
-    end
-
+    worker -->|"runs"| core["SLAM core · pipeline.run()<br/>Python · OpenCV · GTSAM · no GPU"]
     core -->|"trajectory · point cloud · telemetry"| api
-    api -->|"client polls for the result"| spa
+    worker -.->|"progress, by atomically<br/>replacing a JSON file"| api
+    api -.->|"client polls until done"| spa
 ```
 
 ### 1. Classical geometry, not a learned model
