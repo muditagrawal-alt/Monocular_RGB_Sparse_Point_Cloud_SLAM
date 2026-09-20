@@ -353,14 +353,15 @@ flowchart TD
         alb["Application Load Balancer<br/>TLS · /healthz · autoscaling"]
         api["FastAPI<br/>upload validation · job registry"]
         worker["SLAM worker<br/>separate OS process"]
+        core["SLAM core · pipeline.run()<br/>Python · OpenCV · GTSAM · no GPU"]
 
         alb --> api
         api -->|"submit to process pool"| worker
+        worker -->|"runs"| core
     end
 
-    worker -->|"runs"| core["SLAM core · pipeline.run()<br/>Python · OpenCV · GTSAM · no GPU"]
-    core -->|"trajectory · point cloud · telemetry"| api
-    worker -.->|"progress, by atomically<br/>replacing a JSON file"| api
+    core -.->|"trajectory · point cloud · telemetry"| api
+    worker -.->|"progress, by atomically replacing a JSON file"| api
     api -.->|"client polls until done"| spa
 ```
 
