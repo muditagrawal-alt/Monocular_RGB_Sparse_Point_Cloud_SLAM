@@ -16,6 +16,7 @@ data/
 uploads/
 outputs/
 *.mp4
+!docs/media/*.mp4
 *.avi
 *.mov
 *.ply
@@ -32,4 +33,5 @@ web/node_modules/
 .playwright-cli/
 benchmarks/datasets/wild/
 samples/*.mp4
+!docs/media/*.mp4
 !samples/README.md
