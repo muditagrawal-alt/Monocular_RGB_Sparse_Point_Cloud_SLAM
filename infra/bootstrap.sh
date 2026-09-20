@@ -35,10 +35,10 @@ aws iam create-role --role-name slamExpressInfraRole --assume-role-policy-docume
 aws iam attach-role-policy --role-name slamExpressInfraRole \
   --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices
 
-echo "==> creating the Express Gateway service (4 vCPU / 8 GB)"
+echo "==> creating the Express Gateway service (4 vCPU / 8 GB, fits the default 8 vCPU Fargate quota)"
 cat > /tmp/slam-express.json <<JSON
 {
-  "serviceName": "monocular-slam",
+  "serviceName": "monocular-slam-mudit-agrawal",
   "executionRoleArn": "arn:aws:iam::${ACCOUNT}:role/slamTaskExecutionRole",
   "infrastructureRoleArn": "arn:aws:iam::${ACCOUNT}:role/slamExpressInfraRole",
   "healthCheckPath": "/healthz",

@@ -4,8 +4,8 @@
 
 <br>
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_App-d08a2c?style=flat-square&logo=amazonaws&logoColor=white)](https://mo-1693468beaff4294af01115326a65b4f.ecs.us-east-1.on.aws)
-[![Realtime](https://img.shields.io/badge/10s_clip-5.8s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_App-d08a2c?style=flat-square&logo=amazonaws&logoColor=white)](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws)
+[![Realtime](https://img.shields.io/badge/10s_clip-8.4s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
 [![Tests](https://img.shields.io/badge/tests-78_passing-2ea043?style=flat-square&logo=pytest&logoColor=white)](#-setup)
 [![No GPU](https://img.shields.io/badge/GPU-not_required-8a8a8a?style=flat-square&logo=nvidia&logoColor=white)](#-architecture-and-major-technical-decisions)
 
@@ -19,7 +19,7 @@
 **Recover a camera trajectory and a sparse 3D point cloud from a single-lens RGB video.**<br>
 No depth sensor. No GPS. No neural network. No GPU.
 
-[**Open the live app**](https://mo-1693468beaff4294af01115326a65b4f.ecs.us-east-1.on.aws) · [Watch the demo](docs/media/demo.mp4) · [Architecture](#-architecture-and-major-technical-decisions) · [Benchmarks](#-accuracy)
+[**Open the live app**](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws) · [Watch the demo](docs/media/demo.mp4) · [Architecture](#-architecture-and-major-technical-decisions) · [Benchmarks](#-accuracy)
 
 <sub>O-Hive take-home, Assignment 2 · **Mudit Agrawal**</sub>
 
@@ -31,7 +31,7 @@ No depth sensor. No GPS. No neural network. No GPU.
 
 <img src="docs/media/reconstruction.gif" alt="3D reconstruction" width="88%">
 
-<sub>A 10 second clip, reconstructed in **5.9 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
+<sub>A 10 second clip, reconstructed in **8.4 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
 
 </div>
 
@@ -50,7 +50,7 @@ the scene is, and vice versa. Solving both together is what SLAM means.
 
 > The whole pipeline is **classical multi-view geometry**. There is no model
 > file, no inference, and no GPU anywhere in it. That is what makes a 10 second
-> clip finish in under 6 seconds on a CPU container.
+> clip finish in under 9 seconds on a CPU container.
 
 | | |
 |---|---|
@@ -67,14 +67,15 @@ The requirement: a 10-second video must process in **10 seconds or less**.
 | | Deployed result |
 |---|---|
 | Input | 300 frames, 640×360, 30 fps, **10.0 s** |
-| **Processing time** | **5.77 to 5.92 s** |
-| **Realtime factor** | **0.58×** |
-| Consistency | 5 consecutive runs, all within budget |
+| **Processing time** | **8.40 to 8.52 s** |
+| **Realtime factor** | **0.84×** |
+| Consistency | 3 consecutive runs, all within budget |
 
 </div>
 
 **Test environment**: AWS ECS Express Mode on Fargate, `linux/amd64`,
-**8 vCPU / 16 GB**, `us-east-1`. Python 3.11, OpenCV 4.11 headless, GTSAM 4.2.2.
+**4 vCPU / 8 GB**, `us-east-1`. Sized to fit the account's default 8 vCPU
+Fargate quota, which needs headroom for a rolling deployment. Python 3.11, OpenCV 4.11 headless, GTSAM 4.2.2.
 Deployed settings: 448 px processing width, 560 features, loop-verification cap
 100. **No GPU is present or used.**
 
@@ -85,9 +86,9 @@ Deployed settings: 448 px processing width, 560 features, loop-verification cap
 
 | Clip | Length | Processing | Realtime factor |
 |---|---:|---:|---:|
-| Synthetic orbit (closes a loop) | 10.0 s | 5.85 s | 0.58× |
-| Real museum walkthrough | 10.0 s | 8.53 s | 0.85× |
-| Real street footage, forward motion | 10.0 s | 5.88 s | 0.59× |
+| Synthetic orbit (closes a loop) | 10.0 s | 8.45 s | 0.84× |
+| Real museum walkthrough | 10.0 s | 7.93 s | 0.79× |
+| Real street footage, forward motion | 10.0 s | 5.89 s | 0.59× |
 
 </details>
 
@@ -550,7 +551,7 @@ docs/                 implementation plan, design brief, capture guide, media
 
 <div align="center">
 
-**[Open the live app →](https://mo-1693468beaff4294af01115326a65b4f.ecs.us-east-1.on.aws)**
+**[Open the live app →](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws)**
 
 <sub>Built by Mudit Agrawal · O-Hive take-home, Assignment 2</sub>
 
