@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SUPERSEDED. The service now deploys to Modal; see infra/modal_app.py.
+# Kept as the record of the original AWS deployment, which shipped and ran
+# before the account's credits were exhausted. The resources it creates were
+# all torn down, so this runs from scratch against an empty account.
+#
 # One-time AWS setup: ECR repository, IAM roles and the log group.
 # Run once per account, then use deploy.sh for every release.
 set -euo pipefail

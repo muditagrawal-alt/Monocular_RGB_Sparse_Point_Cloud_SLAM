@@ -180,8 +180,8 @@ class LoopClosureConfig:
     verification_cost_s: float = 0.025
     """Assumed cost of one geometric verification when sizing the time-aware
     budget. Measured at roughly 13 ms on an Apple Silicon core and 20 ms on a
-    Fargate vCPU, and Fargate task placement varies enough that the same image
-    and configuration measured 6.5 s on one host and 10.0 s on another. The
+    cloud vCPU, and host speed varies enough to matter: the same image and
+    configuration measured 6.5 s on one Fargate host and 10.0 s on another. The
     figure here is deliberately pessimistic: underestimating it lets the stage
     overrun the deadline, while overestimating only costs some detection."""
 
@@ -354,10 +354,11 @@ def config_from_env() -> SlamConfig:
 
     Processing width and the feature budget are the two levers that actually
     move runtime, and the right value depends on how fast the host is: the same
-    clip runs about 2.5x slower on a Fargate vCPU than on an Apple Silicon
-    core. Exposing them as environment variables means a deployment can be
-    tuned without rebuilding the image, and the applied values are reported
-    back in every result so a run is never ambiguous about what produced it.
+    clip ran about 2.5x slower on a Fargate vCPU than on an Apple Silicon core,
+    and faster again on Modal's physical cores. Exposing them as environment
+    variables means a deployment can be tuned without rebuilding the image, and
+    the applied values are reported back in every result so a run is never
+    ambiguous about what produced it.
     """
     cfg = SlamConfig()
     cfg.frontend.target_width = _env_int("SLAM_TARGET_WIDTH", cfg.frontend.target_width)

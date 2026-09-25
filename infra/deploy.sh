@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# SUPERSEDED. The service now deploys to Modal; see infra/modal_app.py.
+# Kept as the record of the original AWS deployment. Requires bootstrap.sh
+# to have been run first, since the AWS resources were torn down.
+#
 # Build, push and deploy the service to AWS ECS Express Mode.
 #
 # Express Mode provisions the Fargate service, Application Load Balancer, TLS

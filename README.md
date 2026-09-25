@@ -278,8 +278,9 @@ modal deploy infra/modal_app.py   # build, push, roll out
 | `scaledown_window` | 300 s | Long enough to cover a reconstruction and the polling after it, then back to zero so cost tracks real use |
 
 The image is also a plain Docker container (`docker/compose.yaml`), so the
-service is not locked to one provider. The AWS scripts from the previous
-deployment are kept in `infra/bootstrap.sh` and `infra/deploy.sh`.
+service is not locked to one provider. It ran on AWS ECS Express Mode first;
+those scripts are kept, marked superseded, in `infra/bootstrap.sh` and
+`infra/deploy.sh`, and the move is described under [AI Usage](#-ai-usage).
 
 <details>
 <summary><b>Runtime tuning</b> (the right values depend on how fast the host is)</summary>
@@ -586,7 +587,11 @@ on my side:
 - **I required claims to be reproducible before accepting them.** This is what
   exposed the most important defect in the project, below.
 - **I chose the deployment target** after reviewing the CPU evidence, and
-  directed the latency work when the deployed service missed the budget.
+  directed the latency work when the deployed service missed the budget. When
+  the AWS credits ran out I set the constraint (free, and not the three large
+  clouds) and picked Modal from the options, on the basis that only it and
+  Oracle offered real cores. Several free tiers had changed during 2026, so
+  every one was checked live rather than from prior knowledge.
 - The assistant did the implementation, ran the sweeps, and drafted the docs.
 
 ### Recommendations adopted, after they survived measurement

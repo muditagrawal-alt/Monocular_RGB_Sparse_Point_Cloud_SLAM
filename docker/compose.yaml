@@ -6,10 +6,11 @@ services:
     image: monocular-slam:local
     ports:
       - "8000:8000"
-    # Matches the 2 vCPU / 4 GB task the deployment targets, so local timings
-    # are representative of production rather than of the dev machine.
+    # Roughly matches the deployed container (4 cores / 2 GB on Modal), so
+    # local timings are representative of production rather than of whatever
+    # the dev machine happens to have.
     deploy:
       resources:
         limits:
-          cpus: "2.0"
-          memory: 4G
+          cpus: "4.0"
+          memory: 2G

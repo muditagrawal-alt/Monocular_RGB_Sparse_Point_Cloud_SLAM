@@ -4,10 +4,18 @@
 **Repo:** `muditagrawal-alt/Monocular_RGB_Sparse_Point_Cloud_SLAM`
 **Author:** Mudit Agrawal
 **Plan date:** 2026-09-18
-**Status:** Phases 0 to 5 complete and verified locally. Phase 6 (cloud
-deployment) is the remaining gated step. Measured results are in
+**Status:** All phases complete. The service is deployed and live at
+<https://muditagrawal-alt--monocular-slam.modal.run>. Measured results are in
 [README.md](README.md); this document is kept as the original plan of record,
 with a note below on where reality diverged from it.
+
+> **Section 9 is superseded.** The plan targeted AWS ECS Express Mode and that
+> is what shipped first, at 8.4 s for a 10 second clip. The service later moved
+> to Modal when the AWS credits ran out, which turned out to be faster rather
+> than a compromise: Modal allocates physical cores where Fargate vCPUs are
+> hyperthreads. The AWS sizing, cost and rollout detail below is kept as the
+> reasoning that was applied at the time. The current deployment is described
+> in the README.
 
 ---
 
