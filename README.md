@@ -5,7 +5,7 @@
 <br>
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Open_App-d08a2c?style=flat-square&logo=modal&logoColor=white)](https://muditagrawal-alt--monocular-slam.modal.run)
-[![Realtime](https://img.shields.io/badge/10s_clip-5.5s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
+[![Realtime](https://img.shields.io/badge/10s_clip-under_7s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
 [![Tests](https://img.shields.io/badge/tests-78_passing-2ea043?style=flat-square&logo=pytest&logoColor=white)](#-setup)
 [![No GPU](https://img.shields.io/badge/GPU-not_required-8a8a8a?style=flat-square&logo=nvidia&logoColor=white)](#-architecture-and-major-technical-decisions)
 
@@ -31,7 +31,7 @@ No depth sensor. No GPS. No neural network. No GPU.
 
 <img src="docs/media/reconstruction.gif" alt="3D reconstruction" width="88%">
 
-<sub>A 10 second clip, reconstructed in **5.5 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
+<sub>A 10 second clip, reconstructed in **under 7 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
 
 </div>
 
@@ -50,7 +50,7 @@ the scene is, and vice versa. Solving both together is what SLAM means.
 
 > The whole pipeline is **classical multi-view geometry**. There is no model
 > file, no inference, and no GPU anywhere in it. That is what makes a 10 second
-> clip finish in under 6 seconds on a CPU container.
+> clip finish in under 7 seconds on a CPU container.
 
 | | |
 |---|---|
@@ -67,9 +67,9 @@ The requirement: a 10-second video must process in **10 seconds or less**.
 | | Deployed result |
 |---|---|
 | Input | 300 frames, 640×360, 30 fps, **10.0 s** |
-| **Processing time** | **5.47 to 5.52 s** |
-| **Realtime factor** | **0.55×** |
-| Consistency | 3 consecutive runs, identical output, all within budget |
+| **Processing time** | **5.47 to 6.70 s** |
+| **Realtime factor** | **0.55× to 0.67×** |
+| Consistency | 13 runs across 3 clips, every one within budget |
 
 </div>
 
@@ -90,12 +90,22 @@ exclude it.
 
 | Clip | Length | Processing | Realtime factor |
 |---|---:|---:|---:|
-| Synthetic orbit | 10.0 s | 5.47 s | 0.55× |
-| Real museum walkthrough (closes 3 loops) | 10.0 s | 3.81 s | 0.38× |
-| Real street footage, forward motion | 10.0 s | 2.33 s | 0.23× |
+| Synthetic orbit | 10.0 s | 5.47 to 6.70 s | 0.55× to 0.67× |
+| Real museum walkthrough (closes loops) | 10.0 s | 3.81 to 4.87 s | 0.38× to 0.49× |
+| Real street footage, forward motion | 10.0 s | 2.33 to 3.13 s | 0.23× to 0.31× |
 
-Median of 3 runs each. Landmark counts were identical across runs, which is the
-reproducibility fix holding in deployment as well as locally.
+**On the spread, because it is not noise.** Within a given container state the
+output is bit-identical: six consecutive runs of the museum clip all returned
+292 landmarks and 6 loop closures, to the point that only the timing differed.
+Across container states it shifts, and the mechanism is the time-aware loop
+budget doing its job. A freshly started container runs its early stages more
+slowly, so less of the budget is left when loop detection is sized, and it
+verifies fewer candidates: that run found 3 loops and 287 landmarks in 3.81 s.
+A warmed container reaches the same point with more budget left, spends it on
+more verifications, and finds 6 loops and 292 landmarks in 4.87 s. The slower
+number is the better reconstruction. Both are within budget, which is the
+property the design actually guarantees, and the worst case observed across
+every run is 0.67× realtime.
 
 </details>
 
@@ -104,7 +114,8 @@ reproducibility fix holding in deployment as well as locally.
 
 <br>
 
-Measured on the deployment, synthetic orbit clip:
+Measured on the deployment, synthetic orbit clip, on a cold container
+(total 5.48 s; a warm one spends its extra headroom on loop detection):
 
 | Stage | Time | Share |
 |---|---:|---:|
@@ -190,9 +201,13 @@ trackable corners and degraded 1906 archival film offering 125, against the 700
 to 800 a healthy clip provides. Declining to build a map from those is correct
 behaviour, not a gap.
 
-> **Results are reproducible.** Four separate processes produce identical
-> output. This was not true earlier in development, and fixing it is described
-> under [AI Usage](#-ai-usage).
+> **Results are reproducible** at a fixed compute budget: four separate
+> processes produce identical output. This was not true earlier in development,
+> and fixing it is described under [AI Usage](#-ai-usage). The one remaining
+> path from timing to output is deliberate: loop detection sizes itself from
+> the time left, so a slower host verifies fewer candidates. That trades map
+> quality for the budget rather than exceeding it, and is measured under
+> [processing time](#-measured-processing-time-and-test-environment).
 
 ---
 
