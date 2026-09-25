@@ -4,8 +4,8 @@
 
 <br>
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_App-d08a2c?style=flat-square&logo=amazonaws&logoColor=white)](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws)
-[![Realtime](https://img.shields.io/badge/10s_clip-8.4s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Open_App-d08a2c?style=flat-square&logo=modal&logoColor=white)](https://muditagrawal-alt--monocular-slam.modal.run)
+[![Realtime](https://img.shields.io/badge/10s_clip-5.5s_on_CPU-2ea043?style=flat-square)](#-measured-processing-time-and-test-environment)
 [![Tests](https://img.shields.io/badge/tests-78_passing-2ea043?style=flat-square&logo=pytest&logoColor=white)](#-setup)
 [![No GPU](https://img.shields.io/badge/GPU-not_required-8a8a8a?style=flat-square&logo=nvidia&logoColor=white)](#-architecture-and-major-technical-decisions)
 
@@ -14,12 +14,12 @@
 [![GTSAM](https://img.shields.io/badge/GTSAM-4.2.2-1f6feb?style=flat-square)](requirements.txt)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](api/)
 [![React](https://img.shields.io/badge/React-18_+_TS-61DAFB?style=flat-square&logo=react&logoColor=black)](web/)
-[![AWS](https://img.shields.io/badge/AWS-ECS_Fargate-FF9900?style=flat-square&logo=amazonecs&logoColor=white)](infra/)
+[![Modal](https://img.shields.io/badge/Modal-4_CPU_serverless-7FEE64?style=flat-square&logo=modal&logoColor=black)](infra/modal_app.py)
 
 **Recover a camera trajectory and a sparse 3D point cloud from a single-lens RGB video.**<br>
 No depth sensor. No GPS. No neural network. No GPU.
 
-[**Open the live app**](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws) · [Watch the demo](docs/media/demo.mp4) · [Architecture](#-architecture-and-major-technical-decisions) · [Benchmarks](#-accuracy)
+[**Open the live app**](https://muditagrawal-alt--monocular-slam.modal.run) · [Watch the demo](docs/media/demo.mp4) · [Architecture](#-architecture-and-major-technical-decisions) · [Benchmarks](#-accuracy)
 
 <sub>O-Hive take-home, Assignment 2 · **Mudit Agrawal**</sub>
 
@@ -31,7 +31,7 @@ No depth sensor. No GPS. No neural network. No GPU.
 
 <img src="docs/media/reconstruction.gif" alt="3D reconstruction" width="88%">
 
-<sub>A 10 second clip, reconstructed in **8.4 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
+<sub>A 10 second clip, reconstructed in **5.5 seconds on CPU**. The ring is the recovered camera path<br>with a frustum at every keyframe; the cloud inside it is the 3,853 landmarks triangulated along the way.</sub>
 
 </div>
 
@@ -50,7 +50,7 @@ the scene is, and vice versa. Solving both together is what SLAM means.
 
 > The whole pipeline is **classical multi-view geometry**. There is no model
 > file, no inference, and no GPU anywhere in it. That is what makes a 10 second
-> clip finish in under 9 seconds on a CPU container.
+> clip finish in under 6 seconds on a CPU container.
 
 | | |
 |---|---|
@@ -67,17 +67,21 @@ The requirement: a 10-second video must process in **10 seconds or less**.
 | | Deployed result |
 |---|---|
 | Input | 300 frames, 640×360, 30 fps, **10.0 s** |
-| **Processing time** | **8.40 to 8.52 s** |
-| **Realtime factor** | **0.84×** |
-| Consistency | 3 consecutive runs, all within budget |
+| **Processing time** | **5.47 to 5.52 s** |
+| **Realtime factor** | **0.55×** |
+| Consistency | 3 consecutive runs, identical output, all within budget |
 
 </div>
 
-**Test environment**: AWS ECS Express Mode on Fargate, `linux/amd64`,
-**4 vCPU / 8 GB**, `us-east-1`. Sized to fit the account's default 8 vCPU
-Fargate quota, which needs headroom for a rolling deployment. Python 3.11, OpenCV 4.11 headless, GTSAM 4.2.2.
-Deployed settings: 448 px processing width, 560 features, loop-verification cap
-100. **No GPU is present or used.**
+**Test environment**: Modal serverless containers, `linux/amd64`, **4 physical
+CPU cores / 2 GB**. Python 3.11, OpenCV 4.11 headless, GTSAM 4.2.2. Deployed
+settings: 448 px processing width, 560 features, loop-verification cap 100.
+**No GPU is present or used.**
+
+The container scales to zero between requests, so the first upload after an
+idle period pays a cold start of about 5 seconds before processing begins.
+That is container startup, not reconstruction, and the processing times above
+exclude it.
 
 <details>
 <summary><b>Other clips, same deployment</b></summary>
@@ -86,9 +90,12 @@ Deployed settings: 448 px processing width, 560 features, loop-verification cap
 
 | Clip | Length | Processing | Realtime factor |
 |---|---:|---:|---:|
-| Synthetic orbit (closes a loop) | 10.0 s | 8.45 s | 0.84× |
-| Real museum walkthrough | 10.0 s | 7.93 s | 0.79× |
-| Real street footage, forward motion | 10.0 s | 5.89 s | 0.59× |
+| Synthetic orbit | 10.0 s | 5.47 s | 0.55× |
+| Real museum walkthrough (closes 3 loops) | 10.0 s | 3.81 s | 0.38× |
+| Real street footage, forward motion | 10.0 s | 2.33 s | 0.23× |
+
+Median of 3 runs each. Landmark counts were identical across runs, which is the
+reproducibility fix holding in deployment as well as locally.
 
 </details>
 
@@ -97,12 +104,15 @@ Deployed settings: 448 px processing width, 560 features, loop-verification cap
 
 <br>
 
+Measured on the deployment, synthetic orbit clip:
+
 | Stage | Time | Share |
 |---|---:|---:|
-| Front end (corner seeding, KLT tracking) | ~2.2 s | 38% |
-| Pose estimation (PnP against the map) | ~1.5 s | 26% |
-| Bundle adjustment | ~1.2 s | 21% |
-| Loop detection and pose graph | ~0.9 s | 15% |
+| Front end (corner seeding, KLT tracking) | 1.36 s | 25% |
+| Loop detection and pose graph | 1.35 s | 25% |
+| Pose estimation (PnP against the map) | 1.18 s | 22% |
+| Bundle adjustment | 1.05 s | 19% |
+| Descriptors, mapping, export | 0.40 s | 7% |
 
 The first deployed build took **12.3 s** and missed the budget. Four changes,
 each kept only because it was measured:
@@ -113,6 +123,13 @@ each kept only because it was measured:
 | Bundle-adjustment window 8 → 6, iterations 8 → 5 | 39% cheaper **and more accurate** |
 | Processing width 448 | front end −35% |
 | Honest per-verification cost estimate | stopped the stage overrunning |
+
+That work was done against 4 vCPU on Fargate, where it landed at 8.4 s. The
+current deployment is faster for a reason unrelated to the algorithm: Modal
+allocates 4 *physical* cores where 4 Fargate vCPUs are hyperthreads on roughly
+two. Loop detection now takes a larger share than it did, which is the
+time-aware budget behaving correctly, spending the headroom the faster host
+leaves it rather than a fixed allowance.
 
 </details>
 
@@ -228,20 +245,26 @@ python benchmarks/tum.py --sequence freiburg1_xyz      # needs the dataset
 
 ## ☁️ Deployment
 
-The container is the deployment unit and runs unchanged on AWS or Azure.
+**Target: Modal**, which runs the FastAPI app in a serverless container with
+real CPU cores and scales to zero between requests.
 
 ```bash
-./infra/bootstrap.sh              # one-time: ECR, IAM roles, log group, service
-./infra/deploy.sh                 # build, push, roll out, verify
-./infra/deploy.sh --config-only   # retune without rebuilding
+npm --prefix web run build        # the image copies web/dist, it does not run node
+modal deploy infra/modal_app.py   # build, push, roll out
 ```
 
-**Target: AWS ECS Express Mode**, which provisions a Fargate service, load
-balancer, TLS and a public HTTPS hostname from a container image.
+`infra/modal_app.py` wraps the existing app with `@modal.asgi_app()`; nothing in
+`api/` or `slam/` changes to deploy it. Three settings carry the reasoning:
 
-> ⚠️ **AWS App Runner stopped accepting new customers on 30 April 2026**, so the
-> obvious choice from older documentation is unavailable. Express Mode is its
-> successor.
+| Setting | Value | Why |
+|---|---|---|
+| `cpu` | 4.0 physical cores | The pipeline runs at roughly 2× parallelism, so 4 leaves headroom for the API to answer progress polls while the worker saturates its cores |
+| `max_containers` | 1 | The job registry lives in this process and the client polls for progress. A second container would answer those polls with a 404 |
+| `scaledown_window` | 300 s | Long enough to cover a reconstruction and the polling after it, then back to zero so cost tracks real use |
+
+The image is also a plain Docker container (`docker/compose.yaml`), so the
+service is not locked to one provider. The AWS scripts from the previous
+deployment are kept in `infra/bootstrap.sh` and `infra/deploy.sh`.
 
 <details>
 <summary><b>Runtime tuning</b> (the right values depend on how fast the host is)</summary>
@@ -268,13 +291,16 @@ ambiguous about what produced it.
 
 <br>
 
-**Buildx attestation breaks the Fargate pull.** The default build produces an
-OCI image index with attestation manifests that Fargate cannot pull. Build with
-`--provenance=false --sbom=false`.
+**A polling API and a scale-to-zero platform disagree by default.** Uploads
+return a job id that the client polls. That only works while every request
+reaches the process holding the registry, so the container count is pinned to
+one. The same constraint rules out platforms that cannot pin it, which is why
+Vercel functions were not an option despite having enough memory and time.
 
-**The service URL is not in the API response.** `serviceUrl` came back null.
-The AWS-provided hostname lives on the load balancer's listener rule, and
-`deploy.sh` reads it from there.
+**Buildx attestation broke the Fargate pull.** From the earlier AWS deployment,
+kept because it is easy to hit again: the default build produces an OCI image
+index with attestation manifests that Fargate cannot pull. Build with
+`--provenance=false --sbom=false`.
 
 </details>
 
@@ -348,16 +374,16 @@ flowchart TD
 flowchart TD
     spa["React SPA<br/>three.js point-cloud viewer"]
 
-    spa -->|"HTTPS · multipart upload"| alb
+    spa -->|"HTTPS · multipart upload"| edge
 
-    subgraph aws["AWS ECS Express Mode · Fargate 4 vCPU / 8 GB · us-east-1"]
+    subgraph modal["Modal · one container · 4 physical cores / 2 GB · scales to zero"]
         direction TB
-        alb["Application Load Balancer<br/>TLS · /healthz · autoscaling"]
+        edge["Modal edge<br/>TLS · routing · cold start on first request"]
         api["FastAPI<br/>upload validation · job registry"]
         worker["SLAM worker<br/>separate OS process"]
         core["SLAM core · pipeline.run()<br/>Python · OpenCV · GTSAM · no GPU"]
 
-        alb --> api
+        edge --> api
         api -->|"submit to process pool"| worker
         worker -->|"runs"| core
     end
@@ -512,9 +538,15 @@ Demo music: *"Placid Ambient"* by MusicLFiles, CC BY 4.0.
 - **Forward motion is weak geometry.** Moving along the optical axis gives
   little parallax, so those clips yield thinner maps. Inherent, but a wider
   baseline keyframe policy would help.
-- **Fargate placement varies.** The same image measured 6.5 s on one host and
-  10.0 s on another. *Fix:* calibrate per-task at startup with a short
-  synthetic benchmark.
+- **Host speed varies, and the settings are tuned per host.** The same image
+  measured 6.5 s on one Fargate host and 10.0 s on another, and moving to Modal
+  changed the numbers again. Processing width and the feature budget are
+  environment variables for exactly this reason, but choosing them is still
+  manual. *Fix:* calibrate at startup with a short synthetic benchmark.
+- **Cold starts are visible.** The container scales to zero, so the first
+  upload after an idle period waits about 5 seconds for startup before
+  processing begins. *Fix:* keep one container warm, at the cost of paying for
+  idle time.
 
 ---
 
@@ -606,7 +638,7 @@ docs/                 implementation plan, design brief, capture guide, media
 
 <div align="center">
 
-**[Open the live app →](https://mo-a4ee3c36d4e04673b2fbfe9eac1c73ae.ecs.us-east-1.on.aws)**
+**[Open the live app →](https://muditagrawal-alt--monocular-slam.modal.run)**
 
 <sub>Built by Mudit Agrawal · O-Hive take-home, Assignment 2</sub>
 
