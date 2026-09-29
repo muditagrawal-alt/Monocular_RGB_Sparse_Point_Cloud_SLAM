@@ -1,7 +1,6 @@
 """Two-view initialisation with automatic planar/general model selection.
 
-Monocular initialisation fails in two well-known ways (see
-IMPLEMENTATION_PLAN.md section 2.3):
+Monocular initialisation fails in two well-known ways:
 
 * **Pure rotation** gives no baseline, so depth is unrecoverable. Triangulated
   points shoot off to infinity and the map is garbage.

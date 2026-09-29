@@ -1,7 +1,7 @@
 """Tunable parameters for the SLAM pipeline.
 
-Defaults are chosen to hold the performance budget described in
-IMPLEMENTATION_PLAN.md section 7: a 10 s / 300-frame clip in under 10 s on CPU.
+Defaults are chosen to hold the performance budget the assignment sets: a
+10 s / 300-frame clip reconstructed in under 10 s on CPU.
 """
 
 from __future__ import annotations

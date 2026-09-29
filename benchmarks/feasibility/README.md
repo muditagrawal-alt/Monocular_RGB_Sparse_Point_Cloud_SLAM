@@ -1,6 +1,6 @@
 # Feasibility benchmarks
 
-Scripts that produced the measured numbers quoted in `IMPLEMENTATION_PLAN.md`.
+Scripts that produced the front-end measurements quoted in the README.
 They were run *before* the architecture was chosen, to validate the two riskiest
 assumptions in the plan.
 

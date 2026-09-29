@@ -1,6 +1,6 @@
 """Frame-to-map pose estimation.
 
-This is drift-control layer L2 from IMPLEMENTATION_PLAN.md section 4.6. Chaining
+This is drift-control layer L2 of the four described in the README. Chaining
 frame-to-frame relative poses integrates every small error forever, so the
 trajectory drifts without bound. Estimating each pose against the *map* instead
 anchors it to accumulated structure, so error stops compounding.

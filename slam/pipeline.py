@@ -1,7 +1,7 @@
 """The SLAM pipeline: decode -> track -> map -> optimise -> export.
 
-Stage order and the reasoning behind each choice are documented in
-IMPLEMENTATION_PLAN.md section 4. The pipeline is written to degrade rather
+Stage order and the reasoning behind each choice are documented in the README,
+under architecture. The pipeline is written to degrade rather
 than fail: tracking loss triggers re-initialisation instead of aborting, a
 diverged optimisation is rejected instead of corrupting the map, and the
 adaptive-quality guard reduces work up front on long inputs rather than

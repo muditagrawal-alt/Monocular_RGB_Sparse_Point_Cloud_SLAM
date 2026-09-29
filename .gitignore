@@ -35,3 +35,11 @@ benchmarks/datasets/wild/
 samples/*.mp4
 !docs/media/*.mp4
 !samples/README.md
+
+# Kept locally, not published: working notes and the superseded AWS deployment.
+# The README is the document of record for anyone reading the repo.
+IMPLEMENTATION_PLAN.md
+docs/DESIGN_BRIEF.md
+docs/media/poster.png
+infra/bootstrap.sh
+infra/deploy.sh

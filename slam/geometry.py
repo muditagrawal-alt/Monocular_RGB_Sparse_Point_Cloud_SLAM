@@ -100,8 +100,8 @@ def align_sim3(estimated: np.ndarray, reference: np.ndarray,
     """Umeyama alignment of two Nx3 trajectories -> (scale, R, t).
 
     Monocular SLAM recovers geometry only up to a similarity transform, so any
-    comparison against ground truth must solve for this 7-DoF alignment first
-    (IMPLEMENTATION_PLAN.md section 2.1).
+    comparison against ground truth must solve for this 7-DoF alignment first,
+    which is why every ATE figure in the README is post-Sim(3).
     """
     est = np.asarray(estimated, dtype=np.float64).reshape(-1, 3)
     ref = np.asarray(reference, dtype=np.float64).reshape(-1, 3)

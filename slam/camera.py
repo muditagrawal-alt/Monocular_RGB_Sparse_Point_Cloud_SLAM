@@ -1,8 +1,9 @@
 """Pinhole camera model and intrinsics resolution.
 
 Monocular SLAM on an arbitrary upload has no calibration available, so
-`resolve_intrinsics` implements the fallback chain from IMPLEMENTATION_PLAN.md
-section 2.2 and records which path was taken so the UI can be honest about it.
+`resolve_intrinsics` walks a fallback chain (explicit focal length, then video
+metadata, then a 60 degree horizontal field-of-view assumption) and records
+which path was taken so the UI can be honest about it.
 """
 
 from __future__ import annotations

@@ -278,9 +278,8 @@ modal deploy infra/modal_app.py   # build, push, roll out
 | `scaledown_window` | 300 s | Long enough to cover a reconstruction and the polling after it, then back to zero so cost tracks real use |
 
 The image is also a plain Docker container (`docker/compose.yaml`), so the
-service is not locked to one provider. It ran on AWS ECS Express Mode first;
-those scripts are kept, marked superseded, in `infra/bootstrap.sh` and
-`infra/deploy.sh`, and the move is described under [AI Usage](#-ai-usage).
+service is not locked to one provider. It ran on AWS ECS Express Mode first, at
+8.4 s for the same clip; the move is described under [AI Usage](#-ai-usage).
 
 <details>
 <summary><b>Runtime tuning</b> (the right values depend on how fast the host is)</summary>
@@ -641,17 +640,15 @@ web/                  React + TypeScript viewer
 tests/                unit, integration, performance
 benchmarks/           feasibility, ablation, wild-video and TUM harnesses
 docker/               image and compose file
-infra/                bootstrap and deploy scripts
-docs/                 implementation plan, design brief, capture guide, media
+infra/                modal_app.py, the deployment
+docs/                 capture guide and media
 ```
 
 ### Further reading
 
 | Document | What is in it |
 |---|---|
-| [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | The original plan, and a note on where it met reality |
 | [docs/CAPTURE_GUIDE.md](docs/CAPTURE_GUIDE.md) | How to record a video that reconstructs well |
-| [docs/DESIGN_BRIEF.md](docs/DESIGN_BRIEF.md) | How the UI design was derived |
 | [samples/README.md](samples/README.md) | Sample clips, their sources and licences |
 
 ---
