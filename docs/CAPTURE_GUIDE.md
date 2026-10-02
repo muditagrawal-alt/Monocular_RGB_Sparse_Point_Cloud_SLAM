@@ -66,7 +66,7 @@ a bright window.
 | Resolution | 1080p | 4K is downscaled anyway; it only slows the upload |
 | Frame rate | 30 or 60 fps | 60 is decimated to 30 automatically |
 | Stabilisation | On | Reduces blur; the slight warping it adds costs less than the blur would |
-| Duration | **10 seconds** | The assignment's timing case. 60 s is the hard limit |
+| Duration | **10 seconds** | The timing case the budget targets. 60 s is the hard limit |
 | Format | .mp4 or .mov | Straight off any phone is fine |
 
 ## Three captures worth trying

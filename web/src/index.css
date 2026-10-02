@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
-/* Palette extracted from O-HIVE's own compiled stylesheet (o-hive.ai): a fully
-   achromatic oklch ramp with zero chroma, system font stack, and a separate
-   mono face for numerics. The one accent is used only for the drift comparison
+/* A fully achromatic oklch ramp with zero chroma, system font stack, and a
+   separate mono face for numerics. The one accent is used only for the drift comparison
    and loop-closure markers, never for decoration.
 
    The page is dark-locked: a sparse point cloud reads far better on near-black

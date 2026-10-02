@@ -21,7 +21,7 @@ No depth sensor. No GPS. No neural network. No GPU.
 
 [**Open the live app**](https://muditagrawal-alt--monocular-slam.modal.run) · [Watch the demo](docs/media/demo.mp4) · [Architecture](#-architecture-and-major-technical-decisions) · [Benchmarks](#-accuracy)
 
-<sub>O-Hive take-home, Assignment 2 · **Mudit Agrawal**</sub>
+<sub>**Mudit Agrawal**</sub>
 
 </div>
 
@@ -412,7 +412,7 @@ flowchart TD
 
 The 2025-26 headline monocular systems, MASt3R-SLAM, VGGT-SLAM, SLAM3R, are
 dense, transformer-based, and need a CUDA GPU to run at real time. Wrong tool
-here for three independent reasons: the assignment asks for a **sparse** cloud,
+here for three independent reasons: the goal is a **sparse** cloud,
 a GPU task costs far more and complicates deployment, and the 10-second budget
 is achievable on CPU classically.
 
@@ -597,7 +597,7 @@ on my side:
 
 | Decision | Why it was kept |
 |---|---|
-| Classical geometry over a learned dense model | The assignment asks for a *sparse* cloud, and a CPU pipeline hits the 10 s budget where MASt3R-SLAM or VGGT-SLAM would need a GPU |
+| Classical geometry over a learned dense model | The goal is a *sparse* cloud, and a CPU pipeline hits the 10 s budget where MASt3R-SLAM or VGGT-SLAM would need a GPU |
 | KLT optical flow every frame, descriptors only at keyframes | 4.3 ms/frame against 27.5 ms for ORB matching. This one decision is why the budget is met at all |
 | GTSAM for bundle adjustment and pose graph | pip-installable with the right wheels, and never became a bottleneck |
 | Layered drift control (L1-L4) | The ablation shows each layer earning its place: 4.78× on a looping sequence, 13.45× on a straight one |
@@ -657,6 +657,6 @@ docs/                 capture guide and media
 
 **[Open the live app →](https://muditagrawal-alt--monocular-slam.modal.run)**
 
-<sub>Built by Mudit Agrawal · O-Hive take-home, Assignment 2</sub>
+<sub>Built by Mudit Agrawal</sub>
 
 </div>

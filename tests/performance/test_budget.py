@@ -14,7 +14,7 @@ from slam.pipeline import SlamPipeline
 
 @pytest.fixture(scope="module")
 def ten_second_video(tmp_path_factory):
-    """300 frames at 30 fps -- exactly the assignment's stated case."""
+    """300 frames at 30 fps -- exactly the case the budget targets."""
     seq = make_sequence(n_frames=300, motion="orbit", loop=True, seed=0)
     path = tmp_path_factory.mktemp("perf") / "ten_seconds.mp4"
     seq.write_video(path)

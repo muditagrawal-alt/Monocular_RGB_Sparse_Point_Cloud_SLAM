@@ -1,6 +1,6 @@
 """Tunable parameters for the SLAM pipeline.
 
-Defaults are chosen to hold the performance budget the assignment sets: a
+Defaults are chosen to hold the performance budget the project targets: a
 10 s / 300-frame clip reconstructed in under 10 s on CPU.
 """
 
